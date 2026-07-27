@@ -7,9 +7,9 @@ categories = ["논문"]
 summary = "희소 점군을 조밀한 점군으로 복원하는 PUFM++ 논문(arXiv 2512.20988)과 전작 PUFM(코드 공개) 정리. Flow Matching으로 diffusion보다 훨씬 적은 스텝으로 고품질 업샘플링을 달성한다."
 
 [cover]
-  image = "cover.png"
-  alt = "PUFM++ 커버"
-  caption = "PUFM++: Point Cloud Upsampling via Enhanced Flow Matching"
+  image = "pipeline.png"
+  alt = "PUFM++ 네트워크 파이프라인 (원논문 Figure 2)"
+  caption = "PUFM++ 네트워크 구조 · 원논문 Figure 2 — Liu et al., [arXiv:2512.20988](https://arxiv.org/abs/2512.20988) (출처 표기, 학습용 인용)"
   relative = true
 +++
 

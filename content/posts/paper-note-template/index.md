@@ -9,7 +9,7 @@ summary = "새 글을 쓸 때 이 구조를 복사해서 내용만 바꾸면 됩
 [cover]
   image = "cover.png"
   alt = "예시 커버 이미지"
-  caption = "커버 이미지는 front matter의 [cover] 로 지정합니다"
+  caption = "논문 글은 커버를 '논문 파이프라인 figure'로 (출처 명기). 여기선 예시라 타이틀 카드 사용"
   relative = true
 +++
 
@@ -29,6 +29,10 @@ content/posts/paper-note-template/
 
 front matter 맨 위 `+++ ... +++` 안에 제목·날짜·태그·요약을 씁니다.
 `date` 가 미래면 빌드에서 제외되니 주의하세요.
+
+> 🎯 **커버 규칙 (논문 글)**: 커버(`[cover].image`)는 **해당 논문의 파이프라인/구조도 figure**를 씁니다.
+> arXiv HTML판(`arxiv.org/html/<id>`)에서 그림을 받아 글 폴더에 넣고, **캡션에 출처(저자·arXiv 링크)를 명기**하세요.
+> (개념 보충용 자작 도식은 본문에 별도로 넣으면 됩니다.)
 
 ## 한 줄 요약
 

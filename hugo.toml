@@ -38,6 +38,13 @@ paginate = 10
     Title = "시헌의 정리 노트"
     Content = "논문과 프로그램을 정리하는 공간입니다."
 
+  # --- 파비콘/아이콘 (static/ 에 파일 위치) ---
+  [params.assets]
+    favicon = "/favicon.ico"
+    favicon16x16 = "/favicon-16x16.png"
+    favicon32x32 = "/favicon-32x32.png"
+    apple_touch_icon = "/apple-touch-icon.png"
+
   # --- giscus 댓글 (placeholder — 나중에 채우기) ---
   [params.giscus]
     repo = "joesiheon496/joesiheon496.github.io"

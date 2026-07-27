@@ -7,9 +7,9 @@ categories = ["논문"]
 summary = "희소 점군을 조밀한 점군으로 복원하는 PUFM++ 논문(arXiv 2512.20988)과 전작 PUFM(코드 공개) 정리. Flow Matching으로 diffusion보다 훨씬 적은 스텝으로 고품질 업샘플링을 달성한다."
 
 [cover]
-  image = "pipeline.png"
-  alt = "PUFM++ 네트워크 파이프라인 (원논문 Figure 2)"
-  caption = "PUFM++ 네트워크 구조 · 원논문 Figure 2 — Liu et al., [arXiv:2512.20988](https://arxiv.org/abs/2512.20988) (출처 표기, 학습용 인용)"
+  image = "overview.jpg"
+  alt = "PUFM++ 개요: 희소→조밀 point cloud flow matching (원논문 Figure 1)"
+  caption = "PUFM++ 개요 · 희소 점군에서 조밀 점군으로의 flow matching — 원논문 Figure 1 (Liu et al., [arXiv:2512.20988](https://arxiv.org/abs/2512.20988), 학습용 인용)"
   relative = true
 +++
 
@@ -58,6 +58,8 @@ Flow Matching은 시작 분포 `x0`(희소)와 목표 분포 `x1`(조밀) 사이
 
 ### 4. RIN 기반 recurrent latent
 PointNet++ 피드포워드는 매 스텝 전역 구조를 다시 추론해 시간적 일관성이 깨진다. PUFM++는 **Recurrent Interface Network(RIN)** 로 latent token `z_t`를 유지하며 속도와 함께 갱신(`[v, z_{t+1}] = v_θ(x_t, z_t, t)`). Read → Compute → Write 3단 어텐션 구조. 학습 시엔 스텝이 독립 샘플이라 과거 `z`가 없으므로, **null 초기화로 proxy latent를 뽑아(stop-grad) 자기 출력을 조건으로 쓰도록** 2-pass로 학습.
+
+{{< img src="pipeline.png" alt="PUFM++ 네트워크 구조 (원논문 Figure 2)" caption="PUFM++ 네트워크 구조 — 입력 x_t·step t·이전 latent z를 받아 RIN 블록(Read/Compute/Write 어텐션)을 거쳐 속도장 v_pred와 갱신된 z_{t+1}을 출력. 원논문 Figure 2 (Liu et al., arXiv:2512.20988, 학습용 인용)" >}}
 
 ## 실험 결과
 

@@ -1,0 +1,23 @@
+{{/*
+  img shortcode — page bundle 리소스를 max-width 1200으로 리사이즈 + WebP 변환.
+  사용법: {{< img src="loss_curve.png" alt="학습 곡선" caption="Loss curve" >}}
+  - src: 같은 page bundle 폴더의 이미지 파일명 (상대경로)
+  - 1200px보다 넓으면 1200으로 축소, 작으면 원본 폭 유지(업스케일 안 함)
+  - 항상 WebP로 변환
+*/}}
+{{- $src := .Get "src" -}}
+{{- $res := .Page.Resources.GetMatch $src -}}
+{{- if not $res -}}
+  {{- errorf "img shortcode: 리소스를 찾을 수 없음 %q (%s)" $src .Position -}}
+{{- end -}}
+{{- $maxW := 1200 -}}
+{{- $img := $res -}}
+{{- if gt $res.Width $maxW -}}
+  {{- $img = $res.Resize (printf "%dx webp q85" $maxW) -}}
+{{- else -}}
+  {{- $img = $res.Resize (printf "%dx webp q85" $res.Width) -}}
+{{- end -}}
+<figure class="post-img">
+  <img src="{{ $img.RelPermalink }}" width="{{ $img.Width }}" height="{{ $img.Height }}" alt="{{ .Get "alt" }}" loading="lazy" decoding="async">
+  {{- with .Get "caption" }}<figcaption>{{ . }}</figcaption>{{ end -}}
+</figure>

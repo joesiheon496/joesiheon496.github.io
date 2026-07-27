@@ -1,0 +1,24 @@
+{{/* giscus 댓글 — PaperMod의 comments 파티션 오버라이드.
+     설정값은 hugo.toml [params.giscus] 에서 읽음.
+     repoId / categoryId 가 placeholder면 렌더링하지 않음. */}}
+{{- with .Site.Params.giscus -}}
+{{- if and .repoId (ne .repoId "REPLACE_WITH_REPO_ID") -}}
+<script src="https://giscus.app/client.js"
+        data-repo="{{ .repo }}"
+        data-repo-id="{{ .repoId }}"
+        data-category="{{ .category }}"
+        data-category-id="{{ .categoryId }}"
+        data-mapping="{{ .mapping | default "pathname" }}"
+        data-strict="0"
+        data-reactions-enabled="{{ .reactionsEnabled | default "1" }}"
+        data-emit-metadata="{{ .emitMetadata | default "0" }}"
+        data-input-position="{{ .inputPosition | default "bottom" }}"
+        data-theme="preferred_color_scheme"
+        data-lang="{{ .lang | default "ko" }}"
+        crossorigin="anonymous"
+        async>
+</script>
+{{- else -}}
+<!-- giscus: repoId/categoryId 미설정 (giscus.app에서 발급 후 hugo.toml 에 입력) -->
+{{- end -}}
+{{- end -}}

@@ -1,0 +1,63 @@
+baseURL = "https://joesiheon496.github.io/"
+defaultContentLanguage = "ko"
+title = "시헌의 정리 노트"
+theme = ["github.com/adityatelange/hugo-PaperMod"]
+
+enableRobotsTXT = true
+enableEmoji = true
+paginate = 10
+
+# --- Hugo Modules: PaperMod (git submodule 대신 모듈로 관리) ---
+[module]
+  [[module.imports]]
+    path = "github.com/adityatelange/hugo-PaperMod"
+
+# --- 코드 블록 syntax highlighting (Chroma, 클래스 기반) ---
+[markup]
+  [markup.highlight]
+    noClasses = false
+    codeFences = true
+    guessSyntax = true
+    lineNos = false
+    tabWidth = 2
+
+# --- PaperMod 파라미터 ---
+[params]
+  env = "production"
+  defaultTheme = "auto"        # light/dark 자동
+  ShowReadingTime = true
+  ShowShareButtons = false
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
+  ShowCodeCopyButtons = true
+  ShowToc = true
+  TocOpen = false
+  comments = true              # giscus 렌더링 트리거
+
+  [params.homeInfoParams]
+    Title = "시헌의 정리 노트"
+    Content = "논문과 프로그램을 정리하는 공간입니다."
+
+  # --- giscus 댓글 (placeholder — 나중에 채우기) ---
+  [params.giscus]
+    repo = "joesiheon496/joesiheon496.github.io"
+    repoId = "REPLACE_WITH_REPO_ID"
+    category = "Announcements"
+    categoryId = "REPLACE_WITH_CATEGORY_ID"
+    mapping = "pathname"
+    reactionsEnabled = "1"
+    emitMetadata = "0"
+    inputPosition = "bottom"
+    lang = "ko"
+
+# --- 메뉴 ---
+[[menu.main]]
+  identifier = "posts"
+  name = "글"
+  url = "/posts/"
+  weight = 10
+[[menu.main]]
+  identifier = "tags"
+  name = "태그"
+  url = "/tags/"
+  weight = 20

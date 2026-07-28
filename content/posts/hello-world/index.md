@@ -1,7 +1,7 @@
 +++
 title = "샘플 글 — page bundle 이미지 테스트"
 date = 2026-07-27T00:00:00+09:00
-draft = false
+draft = true
 tags = ["hugo", "sample"]
 categories = ["기타"]
 summary = "page bundle 구조에서 상대경로 이미지와 리사이즈 shortcode가 잘 동작하는지 확인하는 샘플 글입니다."

@@ -1,7 +1,7 @@
 +++
 title = "예시: 논문 정리 템플릿"
 date = 2026-07-27T10:00:00+09:00
-draft = false
+draft = true
 tags = ["논문정리", "예시", "template"]
 categories = ["논문"]
 summary = "새 글을 쓸 때 이 구조를 복사해서 내용만 바꾸면 됩니다. front matter·커버·이미지·shortcode·코드·표 사용법을 한 글에 담은 예시입니다."

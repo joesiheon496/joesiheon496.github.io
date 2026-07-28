@@ -1,180 +1,323 @@
 +++
 title = "PU-Mask : 업샘플링을 '생성'이 아니라 '빈칸 채우기'로 본다"
 date = 2026-07-28T15:35:00+09:00
+lastmod = 2026-07-28T16:20:00+09:00
 draft = false
-tags = ["논문정리", "point-cloud", "upsampling", "transformer", "attention", "TCSVT"]
+tags = ["논문정리", "point-cloud", "upsampling", "transformer", "attention", "graph-laplacian", "TCSVT"]
 categories = ["논문"]
-summary = "희소 점군은 원래 조밀했던 점군을 가상 마스크로 국소적으로 가린 결과라고 가정한다. 그러면 업샘플링은 무제약 생성이 아니라 마스크 뒤에 숨은 점을 복원하는 문제가 된다. 마스크 유도 비대칭 트랜스포머 오토인코더와 학습 가능한 의사 라플라시안으로 좌표를 보정한다."
+summary = "희소 점군은 원래 조밀했던 점군을 가상 마스크로 국소적으로 가린 결과라고 가정한다. 그러면 업샘플링은 무제약 생성이 아니라 마스크 뒤에 숨은 점을 채우는 문제가 된다. 마스크 유도 비대칭 트랜스포머 오토인코더, SE-Net을 2차로 확장한 채널 어텐션, 학습 가능한 의사 라플라시안으로 CD·HD·P2F·HF_CD 1위를 기록했다."
 
 [cover]
-  image = "sample-output.png"
-  alt = "PU-Mask 저장소 테스트 샘플: Panda와 Tiger의 2048점 입력과 8192점 출력"
-  caption = "저장소에 포함된 테스트 입출력을 직접 렌더링한 것 (2,048점 → 8,192점, 4×)"
+  image = "concept.png"
+  alt = "PU-Mask 개념: N×3 → 마스크 → 국소 채우기 → 보정 → rN×3"
+  caption = "핵심 발상 — 희소 점군을 가상 마스크로 덮고, 그 안을 채운 뒤 오프셋으로 보정한다 · 원논문 Figure 2 (Liu et al., [T-CSVT 2024](https://doi.org/10.1109/TCSVT.2024.3370001), 학습용 인용)"
   relative = true
 +++
 
-> 📄 **논문**: *PU-Mask: 3D Point Cloud Upsampling via an Implicit Virtual Mask*, Hao Liu, Hui Yuan, Raouf Hamzaoui, Qi Liu, Shuai Li — **IEEE T-CSVT** vol. 34, no. 7, pp. 6489–6502, 2024.07 ([doi:10.1109/TCSVT.2024.3370001](https://doi.org/10.1109/TCSVT.2024.3370001))
+> 📄 **논문**: *PU-Mask: 3D Point Cloud Upsampling via an Implicit Virtual Mask*, Hao Liu (옌타이대), Hui Yuan (산둥대, 교신), Raouf Hamzaoui (De Montfort Univ., 영국), Qi Liu (칭다오대), Shuai Li (산둥대) — **IEEE T-CSVT** vol. 34, no. 7, pp. 6489–6502, 2024.07 ([doi:10.1109/TCSVT.2024.3370001](https://doi.org/10.1109/TCSVT.2024.3370001))
 > 💻 **코드**: [liuhaoyun/PU-Mask](https://github.com/liuhaoyun/PU-Mask) (TensorFlow)
-> 🔗 관련 정리: [Grad-PU]({{< ref "/posts/grad-pu" >}}) · [ReLPU]({{< ref "/posts/relpu" >}}) · [PU-Gaussian]({{< ref "/posts/pu-gaussian" >}})
+> 🔗 관련 정리: [Grad-PU]({{< ref "/posts/grad-pu" >}}) · [ReLPU]({{< ref "/posts/relpu" >}}) · [GaussianPU]({{< ref "/posts/gaussianpu" >}}) · [PU-Gaussian]({{< ref "/posts/pu-gaussian" >}})
 >
-> ⚠️ **이 글의 근거 범위**: 본문 전문이 IEEE 유료 구독 뒤에 있어 **정량 결과 표와 절제 실험을 확인하지 못했다.** 아래 방법 설명은 **초록 + 공개된 구현 코드를 직접 읽고** 정리한 것이고, 논문이 보고한 수치는 싣지 않았다. 그림도 원논문 것이 아니라 저장소의 테스트 입출력과 코드를 근거로 직접 만들었다.
+> 📝 **갱신 이력**: 처음에는 본문을 구할 수 없어 초록과 공개 코드만으로 정리했다. 이후 전문을 확보해 **정량 결과·절제 실험·모듈 상세를 모두 반영하고 전면 재작성**했다. 이전 판에서 "코드만으로는 확증할 수 없다"고 남긴 부분들도 아래에서 정리했다.
+>
+> ⚠️ Figure 2·3·5·6·13은 원논문 그림(출처 명기, 학습용 인용). 저장소 입출력 렌더링과 코드 흐름도는 직접 작성.
 
 ## 한 줄 요약
 
-기존 업샘플링은 "없는 점을 만들어낸다"는 **무제약 생성(unconstrained generative)** 문제로 다뤄졌다. PU-Mask는 관점을 뒤집는다.
+기존 업샘플링은 "없는 점을 만들어낸다"는 **무제약 생성(unconstrained generative)** 문제로 다뤄졌다. 입력 점의 특징이 출력을 제약하지 않으므로, 개별 희소 점이 국소 표면을 제대로 대표하지 못하면 **업샘플 점이 아무 데나 생겨 섭동과 아티팩트**가 된다.
 
-> **희소 입력 점군은 원래 조밀했던 점군을 가상 마스크로 국소적으로 가린 결과**라고 가정한다. 그러면 우리가 할 일은 생성이 아니라 **마스크 뒤에 숨은 점을 채우는 것(local filling)** 이다.
+PU-Mask는 관점을 뒤집는다.
 
-마스크는 실제로 존재하지 않으니 먼저 **어디를 가렸는지 찾아 마스크를 만들고**, 그 마스크가 트랜스포머 디코더를 유도해 특징을 복원한다. 마지막에 **학습 가능한 의사 라플라시안 연산자**로 좌표를 보정한다.
+> **희소 입력 점군은 원래 조밀했던 점군을 가상 마스크로 국소적으로 가린 결과**라고 가정한다. 그러면 우리가 할 일은 생성이 아니라 **마스크 뒤에 숨은 점을 채우는 것(local filling)** 이다. 마스크가 곧 "여기에 이만큼 채워라"는 제약이 된다.
 
-## 초록이 말하는 구성 요소
+## 왜 완성(completion)을 그대로 쓸 수 없는가
 
-논문 초록 기준으로 기여는 다섯 개다.
+발상의 출처는 점군 완성과 **MAE(masked autoencoder)** 다. 그런데 논문은 완성 전략을 그대로 가져오면 안 되는 이유를 명확히 구분한다.
 
-1. **가상 마스크 생성 모듈** — 마스크의 위치를 찾아 형태를 구성
-2. **MTAA** (mask-guided transformer-style asymmetric auto-encoder) — 업샘플 특징 복원
-3. **2차 전개 어텐션**(second-order unfolding attention) — MTAA의 채널 간 상호작용 강화
-4. **마스크 전용 풀링** — coarse 업샘플 점군 생성
-5. **학습 가능한 의사 라플라시안 연산자** — coarse를 보정해 refined 출력
+| | 점군 완성 | 점군 업샘플링 |
+|---|---|---|
+| 목표 | 손상 영역에 없는 점을 추론 | 모든 원본 점의 이웃 사이를 보간 |
+| 범위 | **불완전한 영역만** 손대고 나머지는 그대로 | **모든 점**에서 국소 표면이 미세하게 변동 |
+| 성격 | **전역** 채우기 | **국소** 채우기 |
 
-## 코드에서 읽은 파이프라인
+그래서 완성처럼 전역 속성을 분석해 빈 곳을 메우는 방식이 아니라, **점마다 마스크를 하나씩 씌우는** 구조가 된다. 임의의 점에 대응하는 마스크는 그 점의 **전역적 표현**으로 볼 수 있어 국소 업샘플 점의 회귀를 돕는다는 것이 논문의 논리다.
 
-논문 그림을 볼 수 없으므로, 공개된 `Upsampling/generator.py`와 `Common/ops.py`를 읽어 흐름을 재구성했다.
+## 구조
 
-{{< img src="pipeline.png" alt="PU-Mask 파이프라인 도식" caption="공개 코드의 Generator를 따라 그린 흐름도 (도식 직접 작성). 각 상자 이름은 코드의 실제 함수명" >}}
+{{< img src="architecture.png" alt="PU-Mask 전체 구조: 특징 추출, 가상 마스크 생성, MTAA, 점집합 재구성, 기하 보정" caption="다섯 모듈 — 특징 추출 / 가상 마스크 생성(VMG) / 마스크 유도 비대칭 오토인코더(MTAA, CA-Former) / 점집합 재구성 / 기하 보정. 원논문 Figure 3 (Liu et al., T-CSVT 2024, 학습용 인용)" >}}
 
-### ① 특징 추출 — `feature_extraction_RCB`
+### ① 특징 추출
 
-Chain Residual Block(CRB)을 쌓은 인코더다. 성장률 24, kNN 15로 4개 층을 거치며 각 층 출력을 앞선 특징과 **dense concat** 한다 (24 → 96 → 224 → 352 → 480 채널). PU-GAN/PU-GCN 계열의 dense 특징 추출기와 같은 계보.
+같은 그룹의 전작 **PUFA-GAN**의 densely connected 모듈을 재사용한다. FEB(feature extraction block)는 **DGHRA 1개 + HRA 여러 개**의 concat이고, DGHRA는 동적 그래프 구성(DGC) + HRA다. HRA는 residual block 4개와 gate 유닛 1개로 각 블록의 순수 잔차를 계층적으로 모은다. 경량화를 위해 **DGHRA 안의 HRA를 1개만** 뒀다.
 
-### ② 가상 마스크 생성 — `Pre_upsampling`
+### ② 가상 마스크 생성 (VMG)
 
-여기가 "마스크를 찾는" 부분인데, 코드는 놀랄 만큼 단순하다.
+마스크는 실제로 없으므로 **위치와 형태를 각각 정한다.**
 
-```python
-knn_xyz, idx = get_KNN_feature(xyz, k=12)      # [B,N,K,3]
-mask = central_xyz - knn_xyz                    # 중심점 − 이웃 상대좌표
-mask = conv2d(mask, dim//2, ...)                # MLP
-features_global = tf.reduce_max(mask, axis=1)   # 전역 maxpool
-mask = tf.concat([mask, tile(features_global)]) # 지역+전역 결합
-mask = conv2d(mask, dim, ...)                   # → 256채널 마스크 특징
-```
-
-**각 점의 12-이웃 상대좌표를 펼쳐 MLP에 넣고, 전역 특징을 붙인다.** 즉 마스크는 명시적인 이진 마스크가 아니라 **"이 점 주변이 얼마나 비어 있는가"를 인코딩한 256차원 특징 벡터**다. 논문 제목의 *implicit*(암시적)이 정확히 이 뜻이다.
-
-### ③ MTAA — `Mask_Feature_Expand`
+- **위치**: 보간점은 희소 입력 근처에 흩어지므로, 각 점 `P_i` 자체를 마스크의 초기 위치로 삼는다.
+- **형태**: 이웃과의 관계로 추정한다. kNN 기하 사전지식을 쓴다.
 
 ```text
-입력 특징 F + 2D 그리드  →  Adjust MLP(256)  →  인코더 어텐션 1개
-마스크 M + 그리드        →  MLP(512)
-                         ↓ concat
-디코더:  L0 = [head0, head1] → MLP(512)
-        L1 = [head0, head1] → MLP(512)
-        L2 = [head0, head1] → Linear(1536)
+Ẽ_i,j = P_i − P_i,j                                  (1)  이웃과의 엣지 관계
+BM_i  = [ P_i ⊙ Ẽ_i,1 ⊙ Ẽ_i,2 ⊙ … ⊙ Ẽ_i,j ]           (2)  기본 마스크 (1×(3+3j))
+M̄_i   = Υ(BM_i)  ∈ ℝ^(1×C/2)                         (3)  Υ = 2층 MLP
+→ max pooling 으로 전역 벡터를 얻어 각 M̄_i 에 concat  →  최종 마스크 M ∈ ℝ^(N×C₁)
 ```
 
-**비대칭(asymmetric)** 이라는 말의 의미가 코드에서 드러난다. **인코더는 어텐션 1개, 디코더는 3층 × 2 head** 로 훨씬 두껍다. 복원 쪽에 용량을 몰아준 구조다.
+즉 마스크는 **명시적인 이진 마스크가 아니라 "이 점 주변이 어떻게 비어 있는가"를 인코딩한 특징 벡터**다. 제목의 *implicit*(암시적)이 이 뜻이다.
 
-그리고 **마스크는 디코더에만 들어간다.** 인코더는 입력 점군만 보고, 디코더가 "어디를 채워야 하는가"를 마스크로부터 받는다. 이게 "mask-guided"의 실체다.
+### ③ MTAA — 마스크 유도 비대칭 오토인코더
 
-각 어텐션 유닛(`attention_unit`)은 **self-attention과 채널 어텐션(SE-Net)을 함께** 쓴다.
+패치가 처리 단위라 국소 유사성이 자기충족적이고, 따라서 패치 안의 여러 **점-마스크 쌍 `(P_i, M_i)` 사이에 강한 자기유사성**이 존재할 가능성이 높다. 트랜스포머로 이 장거리 의존성을 잡는다.
+
+전처리로 `F`와 `M`에 **고정 위치 임베딩 2D 그리드**를 붙여 `F̂`, `M̂`을 만든다. 오토인코더가 둘을 구별하게 하는 장치다.
+
+**인코더** — ViT가 이미지를 패치로 쪼개 토큰을 만드는 것에 대응해, 여기서는 **점별 특징 `F̂_i`를 ViT의 패치 하나로 본다.** 그래서 추가 조작 없이 트랜스포머에 바로 넣을 수 있다. 인코더는 잠재 전역 표현 `F̃`만 얻으면 되므로 **CA-Former 1개(head 1개)** 로 가볍게 둔다.
+
+**디코더** — `M̂F = concat(F̃, M̂)`을 만들고 **CA-Former 3개(각 head 2개)** 로 업샘플 점집합의 분포를 추정한다. MLP + reshape로 `F_up ∈ ℝ^(rN×C′)`.
+
+**비대칭(asymmetric)의 의미가 여기서 분명하다** — 인코더 1 : 디코더 3. 복원 쪽에 용량을 몰아주면서 연산량과 메모리는 아낀다. 그리고 **마스크는 디코더에만 들어간다.** 인코더는 보이는 입력만 보고, 디코더가 "어디를 채워야 하는가"를 마스크로부터 받는다. 이게 "mask-guided"의 실체다.
+
+**CA-Former** — 표준 트랜스포머는 장거리 상호작용은 만들지만 **채널 간 연결을 무시한다.** 그래서 Q·K는 그대로 두고(오버헤드 절약) **핵심인 V 벡터에만 경량 채널 어텐션(SUA)을 붙인다.**
+
+### ④ SUA — SE-Net을 2차로 확장
+
+이 논문에서 가장 재미있는 부분. 논문은 SE-Net을 **신호 부호화의 관점**에서 다시 본다.
+
+> 신호 부호화는 먼저 각 부호화 단위의 **DC 계수**(평균 응답에 해당하는 1차 응답)를 뽑고, 남은 잔차를 기저 함수로 다른 직교 공간으로 변환해 **AC 계수**(고차 응답)를 얻는다. SE-Net은 GAP로 평균 응답만 쓰므로, **DC 계수만 뽑아 신호를 복원하는 압축기**에 해당한다.
+
+그래서 2차 항을 추가한다.
+
+{{< img src="apx-sua.png" alt="SE-Net과 제안된 SUA 구조 비교" caption="(a) SE-Net은 GAP(=DC 계수)만 쓴다. (b) SUA는 전역 잔차를 MLP로 변환해 AC 계수를 만들고 GMP로 2차 응답을 뽑아 더한다. 원논문 Figure 5 (Liu et al., T-CSVT 2024, 학습용 인용)" >}}
+
+```text
+1차:  mean = GAP(input)                          # DC 계수
+잔차:  res  = input − broadcast(mean)             # 전역 잔차
+2차:  res  = GMP( MLP(res) )                     # MLP = 변환 기저, GMP = 최대 AC 응답
+결합:  feature = mean + res  →  MLP → MLP → sigmoid → 채널별 가중
+```
+
+**검증**: 공개 코드의 함수 이름은 `SE_NET`이지만 **본체는 정확히 SUA다.**
 
 ```python
-f = conv2d(inputs, dim//4)   # query
-g = conv2d(inputs, dim//4)   # key
-h = conv2d(inputs, dim)
-h = SE_NET(h)                          # ← 채널 어텐션
-s = matmul(g, f, transpose_b=True)     # [B,N,N]
-beta = softmax(s)
-o = matmul(beta, h)
-x = gamma * o + inputs                 # gamma 는 0 초기화 학습 파라미터
+mean = tf.reduce_mean(input, axis=[1, 2])      # GAP  ← 1차
+res  = input - mean_knn                        # 전역 잔차
+res  = conv2d(res, C, [1,1], activation_fn=None)   # 변환 기저
+res  = tf.reduce_max(res, axis=[1, 2])         # GMP  ← 2차
+feature = mean + res                           # 결합
+scale = tf.sigmoid(conv2d(conv2d(feature, C//16), C))
+out = input * scale
 ```
 
-초록의 "2차 전개 어텐션"이 이 SE 결합을 가리키는 것으로 보이는데, **코드만으로는 확증할 수 없다.** 논문 본문을 봐야 정확히 대응시킬 수 있다.
+이전 판에서 "SUA가 SE 결합을 가리키는 것으로 보이는데 코드만으로는 확증할 수 없다"고 적었던 부분이 이렇게 정리된다 — **이름만 SE_NET으로 남은 것이고 구현은 SUA다.** 참고로 절제 실험의 `w/o SUA`는 "SUA를 진짜 SE-Net으로 교체"한 조건이다.
 
-### ④ 마스크 전용 풀링과 좌표 회귀
+### ⑤ 점집합 재구성 — 가상 마스크 기반 풀링 (VMP)
 
-```python
-local = reshape(H, [B, N, r, C])
-local_global = tile(reduce_max(local, axis=2), [1,1,r,1])   # r개 분기에 대한 max
-H = concat([H, local_global])                               # → rN × 2C
-coord = MLP(H)                    # 3채널
-out = tile(inputs, r) + coord     # coarse
+FC 몇 층으로 좌표를 예측하는 흔한 방식은 **업샘플 점들이 서로 독립적으로 생성**된다는 한계가 있다.
+
+```text
+F_up ∈ ℝ^(rN×C′)  →  마스크별로 N개의 집합 F_set ∈ ℝ^(r×C′) 으로 분할
+각 F_set 에 max pooling  →  응답 벡터 F_rv ∈ ℝ^(1×C′)
+F_rv 를 복제해 F_up 에 concat  →  국소 "전역" 수용장을 가진 강화 특징 (rN×2C′)
+FC 2층  →  coarse 점군 P_HR_c ∈ ℝ^(rN×3)
 ```
 
-**같은 점에서 파생된 r개 분기끼리 max pooling** 을 해 그 결과를 각 분기에 되돌려 붙인다. 형제 분기들이 서로를 참조하게 만드는 장치다.
+**같은 마스크에서 파생된 r개 형제 점들이 서로를 참조**하게 만드는 장치다.
 
-### ⑤ 좌표 보정 — `Coordinate_Refine`
+### ⑥ 기하 보정 — 학습 가능한 의사 라플라시안 (PLO)
 
-초록의 "학습 가능한 의사 라플라시안 연산자"에 해당하는 부분.
+선형 필터에서 출발한다.
 
-```python
-knn_xyz, idx = get_KNN_feature(xyz_up, k=26)
-edge_xyz = concat([central_xyz, central_xyz - knn_xyz])   # 절대 + 상대좌표
-edge_xyz = MLP → MLP → Residual Block → MLP
-feature  = MLP(features)                                   # H 를 같은 차원으로
-res = edge_xyz - tile(feature)        # ← 이웃 기하와 특징의 "차이"
-res = reduce_max(res, axis=2)
-offset = MLP(res)
-outputs = out + offset                                     # refined
+```text
+P′_i = Σ_{j∈N(P_i)} w_i,j · P_i,j                            (4)  평범한 선형 필터 → 너무 매끄러워짐
+Σ w_i,j = 1 로 정규화하면
+P′_i = P_i + Σ_{j∈N(P_i)} w_i,j (P_i,j − P_i)                (5)
+              └──────────────────────┘
+              전형적인 이산 라플라시안 연산자
 ```
 
-라플라시안이라 부르는 이유가 보인다. **`edge_xyz − feature`는 "이웃들로부터 계산된 값"과 "자기 자신의 값"의 차이**로, 그래프 라플라시안 `L = D − A`가 하는 일(이웃 평균과 자신의 차)과 같은 구조다. 그걸 고정 연산자가 아니라 MLP로 **학습**하니 *pseudo*·*learnable*.
+식 (5)의 뒷항이 그래프 라플라시안이 하는 일(이웃과 자신의 변화량)과 정확히 같다. 그런데 단순 선형 결합으로 점 사이의 복잡한 관계를 모델링하는 건 무리다. 그래서 **비선형으로 학습**한다.
 
-### ⑥ 정확한 개수 맞추기
+```text
+ΔP_i = A({ M(P_i, P_i,j) − T(P_i) | P_i,j ∈ N(P_i) })        (6)
+P′_i = P_i + ΔP_i                                            (7)
 
-```python
-self.up_ratio_real = self.up_ratio + 2      # 내부적으로 (r+2)배 생성
-...
-outputs = gather_point(outputs, farthest_point_sample(self.out_num_point, outputs))
+M(·) : 2 MLP + residual block  (이웃 관계 탐색)
+T(·) : 2 MLP                   (자기 특징 탐색)
+A(·) : max pooling             (국소 변화량 집약)
 ```
 
-**여유분을 만들고 FPS로 솎아낸다.** `--more_up 2`가 기본값이라 4× 요청이면 내부적으로 6배를 만든 뒤 4N개를 고른다. PU-GAN 계열의 관행이지만, "요청 배율만큼만 만드는 것보다 넉넉히 만들고 고르는 게 낫다"는 실용적 선택이다.
+라플라시안의 **물리적 의미는 보존하면서 비선형**이 되어, 국소 디테일을 적응적으로 인지해 보정한다는 것이 논문의 주장.
 
-## 학습 설정 (코드 기준)
+### ⑦ 개수 맞추기
+
+PU-GAN의 전략을 따라 **(r+2)배로 먼저 만들고 FPS로 솎아낸다.** 즉 `F_up ∈ ℝ^((r+2)N×C′)` → 재구성·보정 → `P_HRt ∈ ℝ^((r+2)N×3)` → FPS → `P_HR ∈ ℝ^(rN×3)`. 공개 코드의 `--more_up 2`가 이것이다.
+
+## 손실
+
+```text
+L_total = w_rec · L_rec + w_u · L_u                (11)
+
+L_rec = 대칭 Chamfer distance (P_HR, P_GT)
+L_u   = Σ_i U_g(S_i) · U_l(S_i)     ← PU-GAN 의 uniform loss
+        U_g : ball query 집합의 점 개수 균일도
+        U_l : 집합 내 최근접 거리 균일도
+```
+
+논문은 `w_rec = 8500`, `w_u = 1`로 설정했다고 밝힌다. **판별자·적대적 손실은 없다** — 공개 코드에 `discriminator.py`가 있지만 실제 최적화 대상 `pu_loss`에 GAN 항이 들어가지 않는 것과 일치한다.
+
+## 실험 설정
 
 | 항목 | 값 |
 |---|:--:|
-| 패치 점 수 | 256 |
-| 업샘플 배율 | 4 (`--more_up 2` → 내부 6배) |
-| 배치 | 28 |
-| 에폭 | 121 |
-| 생성기 lr | 1e-3 (10,000 스텝부터 10,000마다 ×0.7, 하한 1e-6) |
-| 손실 | **Chamfer(가중 8500) + PU-GAN uniform loss(가중 10)** |
-| repulsion loss | 기본 **꺼짐** |
-| 비균일 데이터 증강 | 켜짐 (`--use_non_uniform`) |
+| 학습 데이터 | **PU-147** 147개 모델 중 120개 학습 / 27개 테스트 |
+| 학습 패치 | 학습 점군마다 200패치 무작위 크롭 → **총 24,000 패치** (패치당 256점) |
+| 테스트 입력 | 2,048점 (Monte Carlo 랜덤 샘플링) |
+| 정답 | 8,192점 (Poisson disk 샘플링) |
+| 배율 | r = 4 |
+| 학습 | Adam, 120 epoch, batch 28, lr 0.001 |
+| GPU | NVIDIA **Tesla V100** 1장, TensorFlow |
+| 증강 | 무작위 회전·스케일링·가우시안 노이즈 |
+| 일반화 검증 | PU1K, ModelNet40, KITTI (모두 미학습) |
 
-주목할 점: **저장소에는 판별자(`discriminator.py`)가 있지만 실제 최적화되는 `pu_loss`에는 GAN 손실이 들어가지 않는다.** CD + uniform 만으로 학습된다. 코드 헤더에 PU-GAN 저자(Ruihui Li)의 이름이 남아 있는 걸로 보아 **PU-GAN 코드베이스에서 출발했고 적대적 학습은 걷어낸** 구성으로 읽힌다.
+**지표 5개** — CD, HD, P2F에 더해 **HF_CD·HF_HD**(고주파 영역, 즉 엣지·코너에서의 CD/HD)를 쓴다. PUFA-GAN에서 도입된 지표로, 날카로운 영역의 점 분포 규칙성을 본다.
 
-## 돌려보기
+## 결과
 
-환경이 상당히 낡았다 — **TensorFlow 1.11+, Python 3.6, Ubuntu 16.04**. PointNet++ TF 연산자를 직접 컴파일해야 한다.
+### PU-147 테스트 (27개 점군, 2048 → 8192)
 
-```bash
-# tf_ops 하위 디렉터리들에서 컴파일 스크립트 실행
-# (nvcc / Python / TensorFlow 라이브러리 경로를 환경에 맞게 수정)
+단위 ×10⁻³, **낮을수록 좋음**. 모든 비교 방법을 **저자들이 동일 학습 데이터로 재학습**했다.
 
-python pu_mask.py --phase train     # 학습
-python pu_mask.py --phase test      # 추론
-```
+| 방법 | CD | HD | P2F | HF_CD | HF_HD |
+|---|:--:|:--:|:--:|:--:|:--:|
+| MPU (2018) | 0.438 | 5.322 | 3.066 | 2.998 | 24.308 |
+| PU-GAN (2019) | 0.280 | 4.493 | 2.514 | 2.342 | 22.337 |
+| PU-Geo (2020) | 0.405 | 5.338 | 3.432 | 3.111 | 24.778 |
+| PU-GCN (2021) | 0.323 | 4.172 | 2.926 | 2.978 | 25.152 |
+| Dis-PU (2021) | 0.289 | 3.734 | 2.289 | 2.634 | 22.859 |
+| PU-Refiner (2022) | 0.270 | 3.872 | 2.481 | 2.177 | 21.887 |
+| PUFA-GAN (2022) | 0.258 | 3.571 | 2.392 | 2.081 | **19.744** |
+| **PU-Mask** | **0.252** | **3.462** | **2.167** | **2.059** | 20.825 |
 
-- 학습 패치(HDF5)와 학습·테스트 메시는 저장소의 Google Drive 링크로 배포된다.
-- 사전학습 모델도 Google Drive에 있고 `/model` 폴더에 넣으면 된다.
-- 평가 코드는 **CGAL** 설치가 필요하다: `./evaluation Icosahedron.off Icosahedron.xyz`
-- 저장소에 Panda·Tiger 테스트 점군과 그 출력이 함께 들어 있어, **모델을 돌리지 않고도 결과물을 확인할 수 있다.** 이 글의 커버 이미지가 그것을 렌더링한 것이다 (2,048 → 8,192점).
+- **CD·HD·P2F·HF_CD 1위, HF_HD는 2위.**
+- **직전 SOTA는 같은 그룹의 PUFA-GAN이고, 그 대비 개선 폭은 크지 않다.** CD 0.258 → 0.252(−2.3%), HD 3.571 → 3.462(−3.1%). 반면 P2F는 2.392 → 2.167(−9.4%)로 상대적으로 크다. **표면 밀착도에서 이득이 가장 뚜렷하다.**
+
+### PU1K 일반화 (127개 점군, 미학습 데이터셋)
+
+| 방법 | CD | HD | P2F | HF_CD | HF_HD |
+|---|:--:|:--:|:--:|:--:|:--:|
+| MPU | 0.618 | 7.239 | 1.985 | 3.562 | 69.704 |
+| PU-GAN | 0.488 | 7.072 | 1.964 | 2.314 | 60.896 |
+| PU-Geo | 0.573 | 8.712 | 2.293 | 3.112 | 73.156 |
+| PU-GCN | 0.495 | 6.649 | 1.953 | 2.695 | 62.386 |
+| Dis-PU | 0.463 | 7.124 | 1.770 | 2.145 | 57.527 |
+| PU-Refiner | 0.440 | 6.711 | 1.774 | 2.158 | 58.448 |
+| PUFA-GAN | 0.439 | 6.516 | 1.623 | 1.939 | **56.404** |
+| **PU-Mask** | **0.425** | **6.476** | **1.542** | **1.813** | 59.084 |
+
+PU-147로만 학습한 모델을 그대로 넣은 결과인데도 네 지표 1위다. **HF_HD는 3위**로 떨어지는데, 논문은 이유를 밝힌다 — **고주파 영역의 복잡한 기하 분포가 마스크의 예측 능력을 해쳐 아웃라이어가 몇 개 생긴다.** 자기 방법의 약점을 지표와 함께 설명하는 점은 좋다.
+
+{{< img src="fig-visual.jpg" alt="Bird와 Sculpture에 대한 여덟 방법의 업샘플링 결과 비교" caption="확대 상자를 보면 다른 방법들은 표면 위 노이즈나 국소 뭉침이 남는다 — 특히 새의 발, 조각상의 팔꿈치 같은 복잡한 영역. 원논문 Figure 6 (Liu et al., T-CSVT 2024, 학습용 인용)" >}}
+
+### 복잡도
+
+| 방법 | FLOPs (G) | 학습 (h) | 추론 (s) |
+|---|:--:|:--:|:--:|
+| PU-GCN | **0.4** | **2** | **0.26** |
+| PU-GAN | 1.0 | 18 | 0.46 |
+| MPU | 2.9 | 6 | 1.06 |
+| Dis-PU | 3.3 | 23 | 0.58 |
+| **PU-Mask** | 11.9 | 22 | 0.88 |
+| PUFA-GAN | 20.4 | 28 | 0.94 |
+| PU-Refiner | 22.3 | 26 | 0.67 |
+| PU-Geo | 31.1 | 5 | 0.70 |
+
+**전부 중간값**이다. 논문의 표현대로 "moderate". 성능 1위를 최소 비용으로 달성한 건 아니고, **PU-GCN 대비 FLOPs 30배·추론 3.4배를 쓰고 CD를 0.323 → 0.252로 줄인** 트레이드오프다.
+
+### 절제 실험 (PU-147 테스트)
+
+| 구성 | CD | HD |
+|---|:--:|:--:|
+| w/o **CA-Former** (MLP로 교체) | 0.284 | 4.078 |
+| w/o **PLO** (기하 보정 제거) | 0.276 | 3.651 |
+| w/o **VM** (마스크 제거, F만 MTAA 입력) | 0.267 | 3.675 |
+| w/o **SUA** (SE-Net으로 교체) | 0.265 | 3.731 |
+| w/o **VMP** (마스크 기반 풀링 제거) | 0.261 | 3.809 |
+| **PU-Mask (전체)** | **0.252** | **3.469** |
+
+- **CA-Former가 가장 중요하다** (CD +12.7%). MTAA가 업샘플 특징의 품질을 직접 결정하니 당연하다.
+- **VMP가 가장 영향이 작다** (CD +3.6%). 각 마스크의 업샘플 특징에서 국소 대표 특징만 뽑는 모듈이라는 게 논문의 설명.
+- 눈여겨볼 점: **핵심 아이디어인 가상 마스크(VM)를 빼도 CD는 0.267에 그친다.** 이 값만으로도 PU-Refiner(0.270)·PUFA-GAN(0.258)과 경쟁권이다. 즉 **성능의 상당 부분은 마스크가 아니라 CA-Former/MTAA에서 온다.** "local filling"이라는 프레이밍이 이 논문의 매력이지만, 수치를 밀어 올린 주역은 트랜스포머 구조라고 읽는 게 정확하다.
+
+### 강건성
+
+- **미학습 KITTI LiDAR** (Car 93,768점 / Bicyclists 93,417점): 디테일 개선 확인 (정성).
+- **다양한 입력 크기**: 256 / 1,024 / 4,096점 모두 처리. **256점만 있어도** 고품질 출력.
+- **노이즈**: 0 / 0.5% / 1% 가우시안 노이즈에서 정성 확인.
+- **표면 복원**: Ball pivoting으로 의자 팔걸이 지점을 복원 — 다른 방법들은 전부 불완전.
+
+{{< img src="fig-recon.jpg" alt="업샘플 결과로부터 Ball Pivoting 표면 복원 비교" caption="의자 팔걸이 확대. PU-Mask만 연결된 면을 만들어낸다. 원논문 Figure 13 (Liu et al., T-CSVT 2024, 학습용 인용)" >}}
+
+### PU-Dense 비교 — 여기서 진짜 한계가 드러난다
+
+3D 희소 컨볼루션 기반 **PU-Dense**와 조밀 점군(8iVFB의 *Longdress*)에서 비교.
+
+| | P2P PSNR | 추론 시간 |
+|---|:--:|:--:|
+| PU-Dense | 65.79 dB | **2.48 s** |
+| **PU-Mask** | **71.34 dB** | **1,356.09 s** |
+
+**품질은 5.5 dB 앞서지만 추론이 547배 느리다.** 패치 단위로 처리하는 파이프라인이라 백만 점 규모에서는 패치 수가 폭발한다. 논문이 이 숫자를 정직하게 보고한 건 좋지만, **조밀 점군에는 실용적으로 쓸 수 없다는 뜻**이기도 하다.
+
+거꾸로 PU-Dense는 PU-147로 학습하면 희소 점군에서 점이 입력 근처에 뭉쳐버려 **희소 입력에 부적합**하다. 저자 제공 사전학습 모델로도 해결되지 않았다. 두 방법이 서로 다른 밀도 영역을 담당한다는 결론.
+
+## 읽으면서 걸린 것들
+
+1. **결론이 자기 표를 넘어선다.** 결론은 "PU-Mask outperformed state-of-the-art methods on **all objective metrics**"라고 쓰는데, Table I·III에서 **HF_HD는 각각 2위·3위**다. 본문은 이를 정직하게 서술하고 이유까지 설명하는데, 결론만 과하게 나갔다. 인용할 때 주의.
+2. **같은 모델의 HD가 표마다 다르다.** Table I은 3.462, Table IV는 **3.469**. 소수 셋째 자리 차이지만 동일 설정이어야 한다.
+3. **논문의 `w_u = 1`과 공개 코드의 `uniform_w = 10`이 다르다.** 재현 시 어느 쪽을 쓸지 정해야 한다. `w_rec = 8500`은 코드의 `fidelity_w = 8500`과 일치한다.
+4. **PLO의 A(·) 설명과 구현이 어긋난다.** 논문 본문은 "collects the **sum** of local variations"라고 쓰지만 구현은 **max-pooling**이라고 같은 절에서 명시한다(그리고 코드도 `reduce_max`). 합과 최대는 다른 연산이다.
+5. **VMG 식 (2)와 코드가 다르다.** 논문의 기본 마스크는 `BM_i = [P_i ⊙ Ẽ_i,1 ⊙ … ]`로 **절대좌표 `P_i`를 포함**해 `1×(3+3j)` 차원인데, 공개 코드는 상대좌표만 이어 붙인다.
+   ```python
+   mask = tf.concat([central_xyz - knn_xyz], axis=-1)   # P_i 없음 → 3j 차원
+   ```
+6. **배율은 4만 학습했다.** 임의 배율은 향후 과제로 명시되어 있다. [Grad-PU]({{< ref "/posts/grad-pu" >}})가 정확히 이 지점을 푼 방법이다.
+7. **향후 과제 목록이 이 분야의 빈칸을 잘 보여준다** — 자기지도로 짝 데이터 의존 줄이기, 임의 배율, 속성(색·법선) 업샘플링, 동적 점군.
 
 ## 메모
 
-- **"생성이 아니라 채우기"라는 프레이밍이 이 논문의 진짜 기여**라고 본다. 수식이나 모듈보다 관점의 전환이 먼저다. 무제약 생성으로 보면 "어디에 점을 놓을지"에 제약이 없어 아웃라이어가 생기지만, 빈칸 채우기로 보면 **"비어 있는 곳"이라는 사전 제약**이 생긴다. 이게 [Grad-PU]({{< ref "/posts/grad-pu" >}})가 "좌표 대신 거리를 예측한다"로 얻는 것과 비슷한 종류의 이득이다.
-- **다만 "마스크"라는 이름이 실제 구현보다 거창하다.** 코드를 열어보면 12-이웃 상대좌표를 MLP에 통과시킨 특징 벡터이고, 명시적으로 "여기가 가려졌다"고 판정하는 단계는 없다. 개념적 프레이밍과 구현 사이의 거리를 알고 읽는 게 좋다.
-- **의사 라플라시안 보정은 다른 곳에도 쓸 만하다.** 이웃 기하로부터 계산한 값과 자기 특징의 차이를 offset으로 회귀하는 구조는, 업샘플링뿐 아니라 점군 디노이징·정합 후처리에도 그대로 옮길 수 있다.
-- **환경이 발목을 잡는다.** TF1 + Python 3.6 + 직접 컴파일하는 CUDA 연산자 조합은 2026년 기준으로 재현이 꽤 고통스럽다. 같은 문제를 PyTorch로 다루는 [Grad-PU]({{< ref "/posts/grad-pu" >}})와 비교하면 실험 진입 비용 차이가 크다.
-- **아쉬운 점은 이 글에도 남는다.** 유료 논문이라 저자들이 보고한 CD/HD/P2F와 절제 실험을 확인하지 못했다. 성능을 근거로 이 방법을 선택할지 판단하려면 IEEE Xplore 접근이 필요하다. [ReLPU]({{< ref "/posts/relpu" >}}) 논문이 관련연구에서 이 방법을 "암시적 가상 마스크로 디테일 있고 구조적인 점군 생성을 유도한다"고 인용하는 정도가 외부에서 확인 가능한 평가다.
+- **"생성이 아니라 채우기"라는 프레이밍이 이 논문의 값어치**라고 본다. 무제약 생성으로 보면 "어디에 점을 놓을지"에 제약이 없어 아티팩트가 생기지만, 빈칸 채우기로 보면 **"비어 있는 곳"이라는 사전 제약**이 붙는다. [Grad-PU]({{< ref "/posts/grad-pu" >}})가 "좌표 대신 거리를 예측한다"로 얻는 것과 같은 종류의 이득이다.
+- **다만 절제 실험이 프레이밍의 무게를 조금 덜어낸다.** 마스크를 제거해도 CD 0.267 — 여전히 경쟁권이다. 관점의 전환이 아이디어를 낳고, 실제 수치는 CA-Former가 만든 셈. 논문의 서사와 기여의 분해를 따로 읽을 필요가 있다.
+- **SUA는 다른 곳에도 쓸 만하다.** "SE-Net은 DC 계수만 쓰는 압축기"라는 재해석은 깔끔하고, 잔차 → 변환 → GMP로 2차 응답을 얹는 것은 어느 채널 어텐션에든 붙일 수 있다. 절제 실험에서 SE-Net 대비 CD 0.265 → 0.252 개선이 확인된다.
+- **의사 라플라시안 보정도 이식성이 좋다.** 이웃 기하로 계산한 값과 자기 특징의 차이를 offset으로 회귀하는 구조는 점군 디노이징·정합 후처리에 그대로 옮길 수 있다.
+- **조밀 점군에는 쓰지 말 것.** 1,356초라는 숫자가 이 방법의 적용 범위를 정한다. 백만 점 규모라면 [GaussianPU]({{< ref "/posts/gaussianpu" >}})처럼 패치 분할을 아예 피하는 접근이나 PU-Dense 계열이 맞다. 흥미롭게도 GaussianPU는 **"패치 분할 때문에 블록 경계가 드러난다"** 를 문제로 삼는데, PU-Mask는 그 패치 파이프라인의 정점에 있는 방법이다.
+- **환경이 발목을 잡는다.** TF 1.11 + Python 3.6 + 직접 컴파일하는 CUDA 연산자 조합은 2026년 기준으로 재현이 꽤 고통스럽다. 다행히 저장소에 **Panda·Tiger 테스트 입출력이 들어 있어 모델을 돌리지 않고도 결과물을 볼 수 있다.**
+
+{{< img src="sample-output.png" alt="PU-Mask 저장소 테스트 샘플 렌더링" caption="저장소에 포함된 테스트 입출력을 직접 렌더링 (2,048 → 8,192점, 4×)" >}}
+
+---
+
+## 부록: 공개 코드 기준 흐름
+
+논문 Figure 3과 대조해 보기 위해, 저장소의 `Upsampling/generator.py`를 그대로 따라 그린 것.
+
+{{< img src="pipeline.png" alt="PU-Mask 코드 기준 파이프라인 도식" caption="함수 이름은 코드의 실제 이름 (도식 직접 작성). 논문의 VMG=Pre_upsampling, MTAA=Mask_Feature_Expand, PLO=Coordinate_Refine 에 대응" >}}
+
+논문 용어와 코드 함수의 대응:
+
+| 논문 | 코드 |
+|---|---|
+| 특징 추출 (PUFA-GAN 모듈) | `feature_extraction_RCB` |
+| 가상 마스크 생성 (VMG) | `Pre_upsampling` |
+| MTAA + CA-Former | `Mask_Feature_Expand` (scope `Masked_Transformer`) + `attention_unit` |
+| SUA | `SE_NET` ← **이름만 SE, 구현은 SUA** |
+| 마스크 기반 풀링 (VMP) | generator 안의 `reduce_max(local, axis=2)` + concat |
+| 의사 라플라시안 (PLO) | `Coordinate_Refine` |
+| (r+2) → FPS | `up_ratio_real = up_ratio + 2`, `farthest_point_sample` |
 
 ---
 
 **Sources**
 
-- [PU-Mask: 3D Point Cloud Upsampling via an Implicit Virtual Mask — IEEE Xplore](https://ieeexplore.ieee.org/document/10445295/) (초록)
-- [liuhaoyun/PU-Mask — GitHub](https://github.com/liuhaoyun/PU-Mask) (README 및 구현 코드)
-- [Raouf Hamzaoui 논문 목록](https://www.tech.dmu.ac.uk/~hamzaoui/publications.html) (서지 정보 확인)
+- Liu, Yuan, Hamzaoui, Liu, Li, "PU-Mask: 3D Point Cloud Upsampling via an Implicit Virtual Mask," *IEEE T-CSVT*, 34(7):6489–6502, 2024. [doi:10.1109/TCSVT.2024.3370001](https://doi.org/10.1109/TCSVT.2024.3370001) · [IEEE Xplore](https://ieeexplore.ieee.org/document/10445295/)
+- [liuhaoyun/PU-Mask — GitHub](https://github.com/liuhaoyun/PU-Mask) (README·구현 코드·테스트 입출력)

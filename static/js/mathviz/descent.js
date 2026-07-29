@@ -36,7 +36,9 @@ const SLIDERS = [
     fmt: (v) => v.toFixed(2) },
   { key: 'steps', label: '반복', min: 0, max: MAX_STEPS, step: 1, value: 60,
     fmt: (v) => String(Math.round(v)) },
-  { key: 'beta', label: 'β', min: 0, max: 0.95, step: 0.01, value: 0.9,
+  // β 기본값 0.6: κ∈[1,60] 전 구간에서 생 GD 이하 반복수를 준다(실측). 0.9 는 이 κ 범위에
+  // 대해 너무 커서 모멘텀이 오히려 느려진다 — κ=12 에서 42회 → 114회.
+  { key: 'beta', label: 'β', min: 0, max: 0.95, step: 0.01, value: 0.6,
     fmt: (v) => v.toFixed(2) },
 ];
 
@@ -70,7 +72,7 @@ export function init(root) {
 
   // steps 기본값 60: κ=12 에서 stepsToTarget = 42 다. 40 으로 두면 최적 학습률에서도
   // 목표에 못 닿아 첫 화면이 '미도달' 로 뜬다.
-  const state = { kappa: 12, ratio: 0.9, steps: 60, beta: 0.9, momentum: false };
+  const state = { kappa: 12, ratio: 0.9, steps: 60, beta: 0.6, momentum: false };
   let start = defaultStart(state.kappa);
 
   const sliderHost = root.querySelector('.mv-sliders');
@@ -133,7 +135,9 @@ export function init(root) {
     root.querySelector('.mv-matrix-host').innerHTML = '';
 
     // ---- readout
-    const optRatio = kappa / (1 + kappa);          // 최적 η 에 해당하는 비율
+    // 최적 η 에 해당하는 비율. optimize.js 의 두 값을 합성한다 — 여기서 κ/(1+κ) 로 다시
+    // 유도하면 최적화 수식이 표현 계층으로 새어나온다.
+    const optRatio = optimalEta(kappa) / threshold;
     const rate = contractionRate(kappa);
     const predSteps = stepsToTarget(kappa);
     const measured = measuredRate(path);

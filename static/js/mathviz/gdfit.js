@@ -86,7 +86,9 @@ export function init(root) {
     drawLine(ctx, view, current, colors.accent, 2);
 
     // y 방향 잔차 (2편은 수직 거리였다 — 이 차이가 목적함수 변경이다)
-    ctx.strokeStyle = colors.grid;
+    // ⚠️ colors.grid(--border) 로 그으면 drawGrid 의 격자와 색도 두께도 같아져서 데이터로
+    // 안 읽힌다. 2편 lsfit.js 의 잔차와 같은 colors.muted(--secondary) 를 쓴다.
+    ctx.strokeStyle = colors.muted;
     ctx.lineWidth = 1;
     for (const [x, y] of pts) {
       const [px, py] = view.toPixel([x, y]);

@@ -7,10 +7,12 @@
 // 학습률은 절대값이 아니라 **발산 문턱에 대한 비율** r 로 준다. 문턱 2/κ 는 κ 에 따라
 // 2.0 에서 0.033 까지 60배 움직여서 절대 슬라이더 하나로는 두 끝을 담을 수 없다.
 // 비율로 주면 문턱이 항상 r = 1 에 오고, 정확히 1 로 맞춰 "영원히 진동" 을 볼 수 있다.
+// ⚠️ 모멘텀을 켜면 그 한계가 r = 1 이 아니라 r = 1+β 로 올라간다. draw() 의 rLimit 참고.
 
 import {
   gdPath, optimalEta, divergenceEta, contractionRate,
-  momentumRate, optimalBeta, stepsToTarget, firstIndexBelow, isFinitePoint,
+  momentumRate, optimalBeta, optimalMomentumEta,
+  stepsToTarget, firstIndexBelow, isFinitePoint,
 } from './optimize.js';
 import {
   themeColors, onThemeChange, createView, drawGrid, drawPolygon,
@@ -54,7 +56,13 @@ const defaultStart = (kappa) => [
 const contour = (a, kappa) =>
   UNIT.map(([c, s]) => [a * c, (a / Math.sqrt(kappa)) * s]);
 
-/** 궤적에서 실측한 수축률. 마지막 유의미한 두 스텝의 비. */
+/**
+ * 궤적에서 실측한 **직전 한 스텝의** 비. 마지막 유의미한 두 스텝의 노름 비다.
+ *
+ * ⚠️ 한 스텝의 비이므로 모멘텀에서는 1 을 넘을 수 있다 — 근이 복소수면 비가 스텝마다
+ * 진동하고, 수렴하는 궤적에서도 어떤 한 스텝은 늘어난다(κ=12, β=0.95 에서 3.2 까지).
+ * readout 라벨을 '수축률' 이라고 쓰면 안 되는 이유다.
+ */
 function measuredRate(path) {
   const n = (p) => Math.hypot(p[0], p[1]);
   for (let i = path.length - 1; i >= 1; i--) {
@@ -103,6 +111,11 @@ export function init(root) {
     const threshold = divergenceEta(kappa);
     const eta = ratio * threshold;
     const beta = state.momentum ? state.beta : 0;
+    // heavy ball 의 안정 조건은 η < 2(1+β)/λ_max, 즉 비율로 쓰면 r < 1+β 다.
+    // r = 1+β 에서는 y 축 특성다항식이 z² + (1+β)z + β = (z+1)(z+β) 로 인수분해되어
+    // 근이 −1 과 −β 다 — 크기가 정확히 1 인 근이 있으니 생 GD 와 같은 '영원히 진동' 이다.
+    // β = 0 이면 1 이 되어 생 GD 의 판정(문턱 2/κ)과 정확히 같다.
+    const rLimit = 1 + beta;
 
     drawGrid(ctx, view, colors);
 
@@ -143,11 +156,16 @@ export function init(root) {
     const measured = measuredRate(path);
     const reached = firstIndexBelow(path, 1e-3);
 
+    // 모멘텀이 켜지면 한계가 문턱이 아니라 (1+β)·문턱 이므로 부르는 이름도 바꾼다.
+    const limit = beta > 0
+      ? { over: '발산 한계를', at: '발산 한계다' }
+      : { over: '문턱을', at: '문턱이다' };
+
     let verdict;
-    if (ratio > 1) {
-      verdict = '<span class="no">발산 — 학습률이 문턱을 넘었다</span>';
-    } else if (Math.abs(ratio - 1) < 1e-9) {
-      verdict = '<span class="no">영원히 진동 — 정확히 문턱이다 (발산은 아니다)</span>';
+    if (ratio > rLimit) {
+      verdict = `<span class="no">발산 — 학습률이 ${limit.over} 넘었다</span>`;
+    } else if (Math.abs(ratio - rLimit) < 1e-9) {
+      verdict = `<span class="no">영원히 진동 — 정확히 ${limit.at} (발산은 아니다)</span>`;
     } else if (reached === null) {
       verdict = `<span class="no">미도달</span> — ${steps}회로는 목표에 못 간다`;
     } else {
@@ -158,21 +176,26 @@ export function init(root) {
     root.querySelector('.mv-readout').innerHTML = `
       κ = <b>${kappa.toFixed(1)}</b>
       &nbsp; η = <b>${eta.toFixed(4)}</b>
-      &nbsp; 문턱 = ${threshold.toFixed(4)}
+      &nbsp; 문턱 = ${threshold.toFixed(4)}${beta > 0
+        ? ` → 모멘텀 발산 한계 ${(rLimit * threshold).toFixed(4)}`
+          + ` (η/문턱 = 1+β = ${rLimit.toFixed(2)})`
+        : ''}
       &nbsp; 최적 = ${optimalEta(kappa).toFixed(4)} (비율 ${optRatio.toFixed(2)})<br>
       <b>최적 η 기준</b> 수축률 ${kappaOne ? '—' : rate.toFixed(4)}
       · 예상 ${kappaOne ? '한 번에 도달' : `${predSteps}회`}<br>
-      현재 η 의 실측 수축률 <b>${
+      직전 스텝의 실측 비 <b>${
         diverged ? '발산' : measured === null ? '—' : measured.toFixed(4)}</b><br>
       ${verdict}
       ${state.momentum && !kappaOne
         ? `<br>모멘텀 이론 수축률 <b>${momentumRate(kappa).toFixed(4)}</b>`
           + ` (생 GD ${rate.toFixed(4)}) · 최적 β = ${optimalBeta(kappa).toFixed(2)}`
+          + ` · 짝 η/문턱 = ${(optimalMomentumEta(kappa) / threshold).toFixed(2)}`
         : ''}`;
 
     root.querySelector('.mv-hint').textContent = state.momentum
-      ? 'β 를 올리면 지그재그가 펴집니다. 최적 β 에서 κ 의존성이 κ 에서 √κ 로 줄어듭니다. '
-      + 'readout 의 최적 β 값과 비교해 보세요.'
+      ? 'readout 의 최적 β 와 짝 η/문턱 을 함께 맞춰보세요. 이론 수축률은 그 (β, η) 짝에서만 '
+      + '나옵니다 — β 만 올리면 오히려 느려집니다. 짝을 맞추면 지그재그가 사라지는 게 아니라 '
+      + '같은 지그재그가 훨씬 빨리 좁아지고, κ 의존성이 κ 에서 √κ 로 줄어듭니다.'
       : 'κ 를 키우면 등고선이 납작해지고 궤적이 지그재그가 됩니다. η/문턱 을 1 로 밀면 '
       + '진동이 멈추지 않고, 1 을 넘으면 터집니다. 점을 끌어 시작 위치를 바꿀 수 있습니다. '
       + '수축률은 최적 학습률에서의 값이라 η 를 움직여도 바뀌지 않습니다.';

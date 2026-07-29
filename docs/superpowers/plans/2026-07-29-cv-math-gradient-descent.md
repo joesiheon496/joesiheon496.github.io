@@ -824,9 +824,11 @@ const SLIDERS = [
     fmt: (v) => v.toFixed(1) },
   { key: 'ratio', label: 'η/문턱', min: 0.05, max: 1.3, step: 0.01, value: 0.9,
     fmt: (v) => v.toFixed(2) },
-  { key: 'steps', label: '반복', min: 0, max: MAX_STEPS, step: 1, value: 40,
+  { key: 'steps', label: '반복', min: 0, max: MAX_STEPS, step: 1, value: 60,
     fmt: (v) => String(Math.round(v)) },
-  { key: 'beta', label: 'β', min: 0, max: 0.95, step: 0.01, value: 0.9,
+  // β 기본값 0.6: κ∈[1,60] 전 구간에서 생 GD 이하 반복수를 준다(실측). 0.9 는 이 κ 범위에
+  // 대해 너무 커서 모멘텀이 오히려 느려진다 — κ=12 에서 42회 → 114회.
+  { key: 'beta', label: 'β', min: 0, max: 0.95, step: 0.01, value: 0.6,
     fmt: (v) => v.toFixed(2) },
 ];
 
@@ -858,7 +860,9 @@ export function init(root) {
   const ctx = canvas.getContext('2d');
   const view = createView(canvas, WORLD);
 
-  const state = { kappa: 12, ratio: 0.9, steps: 40, beta: 0.9, momentum: false };
+  // steps 기본값 60: κ=12 에서 stepsToTarget = 42 다. 40 으로 두면 최적 학습률에서도
+  // 목표에 못 닿아 첫 화면이 '미도달' 로 뜬다.
+  const state = { kappa: 12, ratio: 0.9, steps: 60, beta: 0.6, momentum: false };
   let start = defaultStart(state.kappa);
 
   const sliderHost = root.querySelector('.mv-sliders');
@@ -921,7 +925,9 @@ export function init(root) {
     root.querySelector('.mv-matrix-host').innerHTML = '';
 
     // ---- readout
-    const optRatio = kappa / (1 + kappa);          // 최적 η 에 해당하는 비율
+    // 최적 η 에 해당하는 비율. optimize.js 의 두 값을 합성한다 — 여기서 κ/(1+κ) 로 다시
+    // 유도하면 최적화 수식이 표현 계층으로 새어나온다.
+    const optRatio = optimalEta(kappa) / threshold;
     const rate = contractionRate(kappa);
     const predSteps = stepsToTarget(kappa);
     const measured = measuredRate(path);
@@ -1011,14 +1017,17 @@ import('./static/js/mathviz/optimize.js').then(O => {
     console.log('  k='+k, 'norm300=' + (Number.isFinite(last) ? last.toExponential(1) : 'Inf'),
                 last > 1e3 || !Number.isFinite(last) ? 'DIVERGED OK' : 'NOT DIVERGED');
   }
-  console.log('기본 설정(k=12, r=0.9, 40회)이 화면 안에서 수렴하는가:');
-  const p = O.gdPath({kappa:12, eta:0.9*O.divergenceEta(12), start:start(12), steps:40});
+  console.log('기본 설정(k=12, r=0.9, 60회)이 화면 안에서 수렴하는가:');
+  const p = O.gdPath({kappa:12, eta:0.9*O.divergenceEta(12), start:start(12), steps:60});
   console.log('  도달 반복수', O.firstIndexBelow(p, 1e-3),
+              '| 이론 최소', O.stepsToTarget(12),
               '| 최대 |x|', Math.max(...p.map(q=>Math.abs(q[0]))).toFixed(2),
               '| 최대 |y|', Math.max(...p.map(q=>Math.abs(q[1]))).toFixed(2));
   console.log('κ 변경 시 y 재조정이 시작점을 등고선 위에 남기는가:');
-  let s = start(12);
-  for (const k of [20, 40, 60]) { s = [s[0], s[1]*Math.sqrt(12/k)]; }
+  // descent.js 는 매 변경마다 '이전 κ / 새 κ' 로 재조정한다. 검산도 이전 κ 를 물려야 한다 —
+  // 고정 12 를 쓰면 √(12/20)·√(12/40)·√(12/60) 가 되어 실제 로직과 달라진다.
+  let s = start(12), prev = 12;
+  for (const k of [20, 40, 60]) { s = [s[0], s[1]*Math.sqrt(prev/k)]; prev = k; }
   console.log('  k=60 으로 옮긴 뒤', s.map(v=>v.toFixed(3)),
               '| 기대', start(60).map(v=>v.toFixed(3)));
 });
@@ -1028,8 +1037,10 @@ import('./static/js/mathviz/optimize.js').then(O => {
 Expected:
 - `r=1`: 네 κ 모두 `finite OK`, `norm300` 이 `norm299` 와 거의 같다 (진동)
 - `r=1.05`: 네 κ 모두 `DIVERGED OK`
-- 기본 설정: 도달 반복수가 **40 이하의 정수** (null 이면 기본값이 나쁘다 — 그러면
-  `ratio` 기본값을 최적 비율 `κ/(1+κ)` = 0.92 에 더 가깝게 올린다)
+- 기본 설정: 도달 반복수가 **42** (= `stepsToTarget(12)`), 즉 기본 `steps` 60 안에 든다.
+  `null` 이면 `steps` 기본값이 `stepsToTarget(κ기본값)` 보다 작은 것이다 — **`ratio` 를
+  올려서는 고칠 수 없다.** 42 가 최적 학습률에서의 이론 하한이므로 `steps` 기본값을
+  그 위로 올리는 것이 유일한 해법이다
 - κ 재조정: 옮긴 뒤 값이 `기대` 와 소수 셋째 자리까지 같다
 
 - [ ] **Step 5: 확인용 임시 글 만들고 서버 띄우기**

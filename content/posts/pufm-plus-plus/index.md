@@ -15,6 +15,7 @@ summary = "희소 점군을 조밀한 점군으로 복원하는 PUFM++ 논문(ar
 
 > 📄 **논문**: *Point Cloud Upsampling via Enhanced Flow Matching* (PUFM++), Zhi-Song Liu, Chenhang He, Roland Maier, Andreas Rupp — [arXiv:2512.20988](https://arxiv.org/abs/2512.20988) (2025-12)
 > 💻 **코드**: [Holmes-Alan/PUFM](https://github.com/Holmes-Alan/PUFM) — 전작 **PUFM** (*Efficient Point Cloud Upsampling via Flow Matching*, [arXiv:2501.15286](https://arxiv.org/abs/2501.15286))의 공식 구현. 아래 "코드 돌려보기"는 이 저장소 기준입니다.
+> 🔗 관련 정리: [Grad-PU]({{< ref "/posts/grad-pu" >}}) (아래 비교표에 등장) · [PU-Gaussian]({{< ref "/posts/pu-gaussian" >}}) · [PUtPFS]({{< ref "/posts/putpfs" >}}) · [PU-Mask]({{< ref "/posts/pu-mask" >}}) · [ReLPU]({{< ref "/posts/relpu" >}}) · [GaussianPU]({{< ref "/posts/gaussianpu" >}}) · [EGP3D]({{< ref "/posts/egp3d" >}}) — 같은 점군 업샘플링 문제를 거리 함수 / 가우시안 / 빈칸 채우기 / 2D 렌더링 / 학습 없는 최적화로 푼 쪽. 이 글은 **생성 궤적(flow matching)** 계열이다.
 >
 > ⚠️ 이 글의 그림은 저작권 문제를 피하려고 논문 figure를 그대로 쓰지 않고, **보고된 수치와 개념을 직접 도식/차트로 재구성**한 것입니다.
 
@@ -74,7 +75,7 @@ PointNet++ 피드포워드는 매 스텝 전역 구조를 다시 추론해 시�
 |------|:----:|:----:|:-----:|:-----:|
 | PUDM (diffusion) | 1.221 | 1.174 | 3.132 | 0.147 |
 | SAPCU | 1.522 | 1.471 | 3.441 | 0.135 |
-| Grad-PU | 1.132 | 1.186 | 1.957 | 0.111 |
+| [Grad-PU]({{< ref "/posts/grad-pu" >}}) | 1.132 | 1.186 | 1.957 | 0.111 |
 | PUFM (전작) | 1.049 | 0.876 | 1.864 | 0.121 |
 | **PUFM++** | **0.980** | **0.747** | **1.301** | **0.098** |
 

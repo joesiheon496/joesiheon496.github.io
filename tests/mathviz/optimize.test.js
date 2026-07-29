@@ -4,6 +4,7 @@ import {
   quadGrad, quadLoss, optimalEta, divergenceEta, contractionRate,
   momentumRate, optimalBeta, optimalMomentumEta, stepsToTarget,
   gdPath, isFinitePoint, firstIndexBelow,
+  olsDesign, olsKappa, olsClosed, centerPoints, olsGdPath,
 } from '../../static/js/mathviz/optimize.js';
 
 const near = (a, b, eps = 1e-9) =>
@@ -136,4 +137,114 @@ test('firstIndexBelow: 목표점을 옮길 수 있고, 도달 못 하면 null �
   // target 을 [0.005, 0] 으로 두면 마지막 점이 정확히 목표라 거리 0 이다
   assert.equal(firstIndexBelow(path, 1e-3, [0.005, 0]), 3);
   assert.equal(firstIndexBelow([[1, 1], [Infinity, 0]], 1e-3), null);   // 발산
+});
+
+// ------------------------------------------------------------------- OLS
+
+// 스펙 §2 에서 실측한 배치들. 세계좌표 x ∈ [−3, 3] 안이다.
+const SPREAD = [-2.5, -1.5, -0.5, 0.5, 1.5, 2.5];
+const SKEWED = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+const withY = (xs) => xs.map((x) => [x, 0.8 * x + 0.3 + 0.06 * Math.sin(x * 9)]);
+
+/** 정규방정식을 Cramer 로 직접 푼다. olsClosed 와 독립적인 경로다. */
+function closedByCramer(points) {
+  let xx = 0, x1 = 0, n = 0, r0 = 0, r1 = 0;
+  for (const [x, y] of points) {
+    xx += x * x; x1 += x; n += 1; r0 += x * y; r1 += y;
+  }
+  const det = xx * n - x1 * x1;
+  return [(n * r0 - x1 * r1) / det, (xx * r1 - x1 * r0) / det];
+}
+
+test('olsDesign: 설계행렬이 [[x, 1], …] 이고 y 가 분리된다', () => {
+  const { X, y } = olsDesign([[2, 5], [-1, 0.5]]);
+  assert.deepEqual(X, [[2, 1], [-1, 1]]);
+  assert.deepEqual(y, [5, 0.5]);
+});
+
+test('2편 연결: olsKappa 의 σ 가 설계행렬 X 의 특이값이다 (제곱이 아니다)', () => {
+  // svd2x2 는 2×2 만 받으므로 X(n×2) 에 직접 못 쓴다. 대신 특이값을 유일하게
+  // 결정하는 두 항등식으로 독립 검증한다.
+  //   σ₁² + σ₂² = ‖X‖_F² = Σ(x² + 1)
+  //   σ₁² · σ₂² = det(XᵀX)
+  // 이 둘을 만족하면서 σ₁ ≥ σ₂ ≥ 0 인 쌍은 하나뿐이다.
+  for (const xs of [SPREAD, SKEWED, [1, 1, 1, 1]]) {
+    const pts = withY(xs);
+    const { s1, s2, kappa, l1, l2 } = olsKappa(pts);
+
+    let xx = 0, x1 = 0, n = 0;
+    for (const [x] of pts) { xx += x * x; x1 += x; n += 1; }
+    const frob2 = xx + n;                    // ‖X‖_F²
+    const detG = xx * n - x1 * x1;           // det(XᵀX)
+
+    near(s1 * s1 + s2 * s2, frob2, 1e-9);
+    near(s1 * s1 * s2 * s2, detG, 1e-9);
+    assert.ok(s1 >= s2 - 1e-12, `σ 순서 위반 ${s1} ${s2}`);
+
+    // 그리고 이 글의 등식: κ(XᵀX) = (σ₁/σ₂)²
+    if (s2 > 1e-12) near(kappa, (s1 / s2) ** 2, 1e-12 * Math.max(1, kappa));
+    near(l1, s1 * s1, 1e-9);
+    near(l2, s2 * s2, 1e-9);
+  }
+});
+
+test('olsKappa: 스펙 §2 의 실측값을 재현한다', () => {
+  near(olsKappa(withY(SPREAD)).kappa, 2.9, 0.1);
+  near(olsKappa(withY(SKEWED)).kappa, 29.5, 0.5);
+  near(olsKappa(centerPoints(withY(SKEWED)).points).kappa, 1.37, 0.05);
+});
+
+test('2편 연결: olsClosed 가 정규방정식의 해와 같다', () => {
+  for (const xs of [SPREAD, SKEWED]) {
+    const pts = withY(xs);
+    nearPt(olsClosed(pts), closedByCramer(pts), 1e-9);
+  }
+});
+
+test('olsClosed: x 가 모두 같으면(퇴화) 유한한 값을 준다', () => {
+  // XᵀX 가 특이하다. pseudoInverse2x2 가 작은 특이값을 버리므로 발산하지 않는다.
+  const w = olsClosed([[1, 2], [1, 3], [1, 4]]);
+  assert.ok(w.every(Number.isFinite), `유한하지 않다 ${JSON.stringify(w)}`);
+});
+
+test('GD 가 닫힌 해로 수렴한다', () => {
+  const pts = withY(SPREAD);
+  const target = olsClosed(pts);
+  const path = olsGdPath({ points: pts, steps: 2000 });
+  nearPt(path[2000], target, 1e-12);
+  assert.equal(path.length, 2001);
+});
+
+test('중심화: 답인 직선은 그대로이고 조건수만 낮아진다', () => {
+  const pts = withY(SKEWED);
+  const target = olsClosed(pts);
+
+  // 중심화해서 풀어도 원 좌표로 환산하면 같은 직선이다
+  const { points: cen, xbar } = centerPoints(pts);
+  const wc = olsClosed(cen);
+  nearPt([wc[0], wc[1] - wc[0] * xbar], target, 1e-9);
+
+  // 조건수는 크게 낮아진다
+  assert.ok(olsKappa(cen).kappa < olsKappa(pts).kappa / 10,
+    '중심화가 조건수를 10배 이상 낮추지 못했다');
+
+  // olsGdPath 는 center 여부와 무관하게 원 좌표로 환산된 값을 준다
+  const slow = olsGdPath({ points: pts, steps: 400, center: false });
+  const fast = olsGdPath({ points: pts, steps: 400, center: true });
+  const dist = (p) => Math.hypot(p[0] - target[0], p[1] - target[1]);
+  assert.ok(dist(fast[400]) < dist(slow[400]),
+    `중심화가 더 빠르지 않다: ${dist(fast[400])} vs ${dist(slow[400])}`);
+  assert.ok(dist(fast[400]) < 1e-9, `중심화 쪽이 수렴하지 않았다: ${dist(fast[400])}`);
+});
+
+test('중심화: 반복수가 스펙 §2 실측대로 줄어든다', () => {
+  // 스펙 §2: 오른쪽 치우침에서 102회 → 4회
+  const pts = withY(SKEWED);
+  const target = olsClosed(pts);
+  const nSlow = firstIndexBelow(
+    olsGdPath({ points: pts, steps: 5000, center: false }), 1e-3, target);
+  const nFast = firstIndexBelow(
+    olsGdPath({ points: pts, steps: 5000, center: true }), 1e-3, target);
+  assert.ok(nSlow > 50, `중심화 없이 너무 빨리 끝났다: ${nSlow}`);
+  assert.ok(nFast !== null && nFast < 15, `중심화가 15회 미만이 아니다: ${nFast}`);
 });

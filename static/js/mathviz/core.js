@@ -242,3 +242,71 @@ export function drawArrow(ctx, view, from, to, { color, width = 2, head = 9 }) {
   ctx.closePath();
   ctx.fill();
 }
+
+/**
+ * 열린 폴리라인. GD 궤적용이다.
+ * drawPolygon 은 closePath() 를 호출하므로 궤적에 쓸 수 없다 —
+ * 마지막 점과 시작점이 이어져 버린다.
+ */
+export function drawPath(ctx, view, pts, { color, width = 2 }) {
+  if (pts.length < 2) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const [x, y] = view.toPixel(p);
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  });
+  ctx.stroke();
+}
+
+/**
+ * 체크박스 행. makeSliders 와 같은 반환 규약이지만 값이 boolean 이다.
+ *
+ * ⚠️ 이 함수는 el 을 비우지 않는다. makeSliders 가 `el.innerHTML = ''` 를 하므로
+ * **makeSliders 를 먼저 호출한 뒤** 이 함수를 불러야 한다. 순서를 바꾸면 슬라이더가 지워진다.
+ *
+ * makeSliders 를 확장하지 않는 이유: 그 함수는 parseFloat 와 min/max/step 에 묶여
+ * 있어서 boolean 을 끼우면 clamp 의 의미가 깨진다.
+ *
+ * CSS 를 건드리지 않기 위해 기존 .mv-slider 그리드 행을 재사용한다. 다만
+ * `.mv-slider input { width: 100% }` 가 체크박스를 늘리므로 인라인으로 되돌린다.
+ */
+export function makeToggles(el, defs, onInput) {
+  const rows = {};
+
+  function getValues() {
+    const v = {};
+    for (const k in rows) v[k] = rows[k].checked;
+    return v;
+  }
+
+  defs.forEach((d) => {
+    const row = document.createElement('div');
+    row.className = 'mv-slider';
+    const label = document.createElement('label');
+    label.textContent = d.label;
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !!d.value;
+    input.style.width = 'auto';
+    input.style.justifySelf = 'start';
+    const out = document.createElement('span');
+    out.className = 'mv-val';
+    const show = () => { out.textContent = input.checked ? '켜짐' : '꺼짐'; };
+    show();
+    input.addEventListener('change', () => { show(); onInput(getValues()); });
+    row.append(label, input, out);
+    el.appendChild(row);
+    rows[d.key] = input;
+  });
+
+  function setValues(obj) {
+    for (const k in obj) {
+      if (!rows[k]) continue;
+      rows[k].checked = !!obj[k];
+    }
+  }
+
+  return { getValues, setValues };
+}

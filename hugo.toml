@@ -21,6 +21,17 @@ paginate = 10
     lineNos = false
     tabWidth = 2
 
+  # --- 수식(KaTeX) 통과 처리 ---
+  # 이걸 켜지 않으면 Goldmark 가 LaTeX 의 밑줄을 이탤릭으로 해석해 수식이 조용히 깨진다.
+  # 인라인은 \(...\) 이고 $...$ 가 아니다 — $ 를 쓰면 기존 글의 달러 표기가 수식으로 잡힌다.
+  [markup.goldmark]
+    [markup.goldmark.extensions]
+      [markup.goldmark.extensions.passthrough]
+        enable = true
+        [markup.goldmark.extensions.passthrough.delimiters]
+          block = [['\[', '\]'], ['$$', '$$']]
+          inline = [['\(', '\)']]
+
 # --- PaperMod 파라미터 ---
 [params]
   env = "production"

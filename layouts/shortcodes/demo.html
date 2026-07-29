@@ -1,0 +1,20 @@
+{{/* 인터랙티브 데모 삽입. 사용법: {{< demo name="transform2d" >}} */}}
+{{ $name := .Get "name" }}
+{{ $id := printf "mv-%s-%d" $name .Ordinal }}
+<link rel="stylesheet" href="{{ "css/mathviz.css" | relURL }}">
+<div class="mv-demo" id="{{ $id }}">
+  <div class="mv-tabs"></div>
+  <div class="mv-body">
+    <div class="mv-left"><canvas></canvas></div>
+    <div class="mv-right">
+      <div class="mv-sliders"></div>
+      <div class="mv-matrix-host"></div>
+      <div class="mv-readout"></div>
+      <div class="mv-hint"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+  import { init } from '{{ printf "js/mathviz/%s.js" $name | relURL }}';
+  init(document.getElementById('{{ $id }}'));
+</script>

@@ -30,6 +30,27 @@ export function affine({ theta, sx, sy, shear, tx, ty }) {
   return [[a, b, tx], [d, e, ty], [0, 0, 1]];
 }
 
+/**
+ * affine() 의 역. 선형부를 회전 × 상삼각으로 되돌린다 (QR).
+ * 원근항(3행)은 무시하므로 homography 를 넣어도 선형부만 돌려준다 —
+ * 클래스를 낮출 때 도형을 이어받는 데 쓴다.
+ * theta 는 라디안.
+ */
+export function decomposeAffine(M) {
+  const [a, b] = [M[0][0], M[0][1]];
+  const [d, e] = [M[1][0], M[1][1]];
+  const theta = Math.atan2(d, a);
+  const c = Math.cos(theta), s = Math.sin(theta);
+  return {
+    theta,
+    sx: c * a + s * d,
+    shear: c * b + s * e,
+    sy: -s * b + c * e,
+    tx: M[0][2],
+    ty: M[1][2],
+  };
+}
+
 /** 부분 피벗 가우스 소거. A 는 n×n, b 는 길이 n. A·x = b 의 x 반환. */
 function solve(A, b) {
   const n = b.length;

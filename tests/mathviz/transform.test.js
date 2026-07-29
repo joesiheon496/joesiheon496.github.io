@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   identity, rigid, similarity, affine, homographyFromQuads,
-  apply, applyAll, preservation, UNIT_SQUARE,
+  apply, applyAll, preservation, decomposeAffine, UNIT_SQUARE,
 } from '../../static/js/mathviz/transform.js';
 
 const near = (a, b, eps = 1e-9) =>
@@ -74,4 +74,34 @@ test('원근이 든 homography 는 평행을 깬다', () => {
 test('apply 는 원근 나눗셈을 한다', () => {
   const M = [[1, 0, 0], [0, 1, 0], [1, 0, 1]];   // w = x + 1
   nearPt(apply(M, [1, 2]), [0.5, 1]);
+});
+
+test('decomposeAffine 은 affine 의 왕복이다', () => {
+  const p = { theta: 0.6, sx: 1.4, sy: 0.7, shear: -0.3, tx: 1.2, ty: -0.8 };
+  const got = decomposeAffine(affine(p));
+  for (const k of Object.keys(p)) near(got[k], p[k], 1e-12);
+});
+
+test('decomposeAffine: rigid 는 스케일 1, 전단 0 으로 분해된다', () => {
+  const got = decomposeAffine(rigid({ theta: -0.9, tx: 3, ty: 4 }));
+  near(got.theta, -0.9, 1e-12);
+  near(got.sx, 1, 1e-12);
+  near(got.sy, 1, 1e-12);
+  near(got.shear, 0, 1e-12);
+  near(got.tx, 3); near(got.ty, 4);
+});
+
+test('decomposeAffine: similarity 는 sx = sy = s 로 분해된다', () => {
+  const got = decomposeAffine(similarity({ theta: 0.4, s: 1.7, tx: 0, ty: 0 }));
+  near(got.sx, 1.7, 1e-12);
+  near(got.sy, 1.7, 1e-12);
+  near(got.shear, 0, 1e-12);
+});
+
+test('decomposeAffine 은 homography 의 원근항을 버리고 선형부만 본다', () => {
+  // 원근이 있어도 예외 없이 선형부를 돌려준다 (클래스 전환 시 필요)
+  const dst = [[0, 0], [1, 0], [0.7, 1], [0.3, 1]];
+  const got = decomposeAffine(homographyFromQuads(UNIT_SQUARE, dst));
+  assert.ok(Number.isFinite(got.theta) && Number.isFinite(got.sx));
+  assert.ok(got.sx > 0);
 });

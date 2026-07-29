@@ -1,0 +1,8 @@
+{
+  "name": "joesiheon496-blog-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}

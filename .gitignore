@@ -6,3 +6,6 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# SDD 작업공간 (계획별 scratch — 커밋 대상 아님)
+/.superpowers/

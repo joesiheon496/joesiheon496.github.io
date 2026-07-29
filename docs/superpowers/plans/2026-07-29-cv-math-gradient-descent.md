@@ -799,7 +799,7 @@ export function makeToggles(el, defs, onInput) {
 // 비율로 주면 문턱이 항상 r = 1 에 오고, 정확히 1 로 맞춰 "영원히 진동" 을 볼 수 있다.
 
 import {
-  quadLoss, gdPath, optimalEta, divergenceEta, contractionRate,
+  gdPath, optimalEta, divergenceEta, contractionRate,
   momentumRate, optimalBeta, stepsToTarget, firstIndexBelow, isFinitePoint,
 } from './optimize.js';
 import {
@@ -1190,8 +1190,7 @@ export function init(root) {
     const path = olsGdPath({ points: pts, steps, center: state.center });
     const current = path[path.length - 1];
 
-    const rawK = olsKappa(pts).kappa;
-    const { s1, s2 } = olsKappa(pts);
+    const { s1, s2, kappa: rawK } = olsKappa(pts);
     const cenK = olsKappa(centerPoints(pts).points).kappa;
 
     drawGrid(ctx, view, colors);
@@ -1649,7 +1648,7 @@ computation (momentum, which trades kappa for sqrt(kappa))."
 4. **κ 를 바꿀 때 시작점 y 를 재조정하는 것**은 UX 판단이다. 재조정하지 않으면 κ 를
    키울 때 시작점이 등고선 바깥으로 튀어 화면을 벗어난다. Task 3 Step 4 가 재조정이
    시작점을 같은 등고선 위에 남기는지 확인한다.
-5. `olsKappa` 를 `draw` 한 번에 세 번 호출한다(원본·중심화·구조분해). 6점 2×2 이므로
+5. `olsKappa` 를 `draw` 한 번에 두 번 호출한다(원본·중심화). 6점 2×2 이므로
    비용이 무시할 수준이다. 최적화하지 않는다.
 6. Task 4 의 readout 이 `MAX_STEPS` 궤적을 매 프레임 다시 계산한다(도달 반복수 표시용).
    400스텝 × 6점이라 무시할 수준이다. 느려지면 그때 캐시한다.

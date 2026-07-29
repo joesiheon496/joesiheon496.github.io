@@ -216,3 +216,29 @@ export function renderMatrix(el, M) {
     ).join('')).join('')
   }</div>`;
 }
+
+/** 월드좌표 from → to 화살표. head 는 머리 길이(픽셀). */
+export function drawArrow(ctx, view, from, to, { color, width = 2, head = 9 }) {
+  const [x0, y0] = view.toPixel(from);
+  const [x1, y1] = view.toPixel(to);
+  const dx = x1 - x0, dy = y1 - y0;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return;                       // 너무 짧으면 그리지 않는다 (σ = 0)
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+
+  const ux = dx / len, uy = dy / len;
+  const h = Math.min(head, len * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - h * ux - h * 0.45 * uy, y1 - h * uy + h * 0.45 * ux);
+  ctx.lineTo(x1 - h * ux + h * 0.45 * uy, y1 - h * uy - h * 0.45 * ux);
+  ctx.closePath();
+  ctx.fill();
+}

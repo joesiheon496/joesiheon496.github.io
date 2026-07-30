@@ -15,7 +15,7 @@ import {
 } from './core.js';
 import {
   rotatedHessian, diagPreconditionedKappa, optPath, bestEta, effectiveEta,
-  initState, optimizerStep, quadGradA, KINDS, DEFAULT_STARTS,
+  initState, optimizerStep, quadGradA, KINDS,
 } from './adaptive.js';
 
 const WORLD = { xmin: -3, xmax: 3, ymin: -3, ymax: 3 };
@@ -43,15 +43,47 @@ const RADIO = {
 
 const betaFor = (kappa) => Math.pow((Math.sqrt(kappa) - 1) / (Math.sqrt(kappa) + 1), 2);
 
-/** bestEta 는 무거우므로 (kind, κ, θ) 로 캐시한다. 스펙 §3-2 */
+/** 표 계산을 미루는 시간. 슬라이더 한 칸을 지나갈 때마다 다시 재지 않을 만큼만 길다. */
+const TABLE_DEBOUNCE_MS = 200;
+
+/**
+ * bestEta 는 무거우므로 (kind, κ, θ) 로 캐시한다. 스펙 §3-2
+ *
+ * ⚠️ 캐시만으로는 부족하다. makeSliders 는 `input` 이벤트로 붙어 있어서 드래그 중
+ * **바뀌는 값마다** 콜백이 오고, 새 정수 θ 는 전부 캐시 miss 다. miss 한 번이
+ * 5 시작점 × 88 η 그리드 × 최대 4000 반복 × 5 방법 = 실측 300~390 ms 의 동기 작업이다.
+ * 글의 지시가 "θ 를 0° 에서 45° 로 밀어보세요" 이므로, 그대로 하면 miss 가 45 번
+ * 연달아 나서 메인 스레드가 15 초쯤 멈춘다.
+ *
+ * 그래서 그리기를 둘로 가른다 — 격자·등고선·궤적·표 밖 readout 은 매 프레임 그리고,
+ * 다섯 방법 표만 scheduleTable() 로 미룬다. 미루는 동안 표는 직전 (κ, θ) 의 값을
+ * `(갱신 중)` 표시와 함께 보여준다. 표시 없이 옛 숫자를 두면 독자가 그것을 지금
+ * (κ, θ) 의 값으로 읽는다. 궤적은 lastEta 로 그려서 끊기지 않는다.
+ *
+ * ⚠️ makeSliders 나 그 이벤트 종류를 고쳐서 해결하지 말 것 — 다른 데모 다섯 개가
+ * 같은 함수에 의존한다. 완화책은 이 파일 안에 있어야 한다. 스펙 §3-2 가 요구한 것이
+ * 정확히 이것이고, 캐시만 들어와 있었다. "단순화" 로 되돌리지 말 것.
+ */
 const etaCache = new Map();
-function tableRow(kind, kappa, thetaDeg) {
-  const key = `${kind}|${kappa}|${thetaDeg}`;
-  if (etaCache.has(key)) return etaCache.get(key);
+
+/** 방법별로 **마지막으로 실제 쓴** η. 캐시 miss 인 (κ, θ) 에서 궤적을 그릴 때 쓴다. */
+const lastEta = new Map();
+
+const cacheKey = (kind, kappa, thetaDeg) => `${kind}|${kappa}|${thetaDeg}`;
+
+/** 캐시에 있으면 그 행, 없으면 undefined. 절대 계산하지 않는다. */
+const cachedRow = (kind, kappa, thetaDeg) => etaCache.get(cacheKey(kind, kappa, thetaDeg));
+
+/** 비싼 쪽. 캐시에 없으면 bestEta 를 돌린다 — 디바운스된 자리와 init 에서만 부른다. */
+function computeRow(kind, kappa, thetaDeg) {
+  const key = cacheKey(kind, kappa, thetaDeg);
+  const hit = etaCache.get(key);
+  if (hit) return hit;
   const A = rotatedHessian(kappa, (thetaDeg * Math.PI) / 180);
   const opts = kind === 'momentum' ? { beta: betaFor(kappa) } : {};
   const r = bestEta({ kind, A, ...opts });
   etaCache.set(key, r);
+  lastEta.set(kind, r.eta);
   return r;
 }
 
@@ -70,7 +102,33 @@ export function init(root) {
 
   attachDrag(canvas, view, () => [start], (i, p) => { start = p; draw(); });
 
-  function contourPoints(A, c, theta) {
+  // 표에 지금 그려져 있는 마지막 **완성분**. 계산이 미뤄지는 동안 이것을 보여준다.
+  let shownRows = null;
+  let pendingTable = 0;
+
+  /** 현재 (κ, θ) 의 다섯 행을 디바운스로 계산한 뒤 다시 그린다. 앞선 예약은 취소한다. */
+  function scheduleTable() {
+    clearTimeout(pendingTable);
+    pendingTable = setTimeout(() => {
+      pendingTable = 0;
+      KINDS.forEach((k) => computeRow(k, vals.kappa, vals.theta));
+      draw();
+    }, TABLE_DEBOUNCE_MS);
+  }
+
+  /**
+   * 궤적과 readout 이 쓰는 η. 캐시가 있으면 그 값이고, 없으면 그 방법에 **마지막으로
+   * 쓴** η 로 그린다 — 표가 갱신되기 전에도 궤적이 끊기지 않게 하려는 것이다.
+   * 아무것도 모르는 상태는 init 의 동기 계산 이전뿐이라 그때만 직접 계산한다.
+   */
+  function etaFor(k) {
+    const hit = cachedRow(k, vals.kappa, vals.theta);
+    if (hit) return hit.eta;
+    const last = lastEta.get(k);
+    return last !== undefined ? last : computeRow(k, vals.kappa, vals.theta).eta;
+  }
+
+  function contourPoints(c, theta) {
     // xᵀAx = 2c 의 등위선은 축정렬 타원을 θ 만큼 회전한 것이다.
     // 새 도형 코드 없이 3편의 64각형을 회전만 시킨다.
     const kappa = vals.kappa;
@@ -94,7 +152,8 @@ export function init(root) {
     const A = rotatedHessian(vals.kappa, theta);
     const opts = kind === 'momentum' ? { beta: betaFor(vals.kappa) } : {};
     // η 는 표와 궤적이 같은 값을 쓴다 — 캐시된 bestEta 결과에서 가져온다.
-    const eta = tableRow(kind, vals.kappa, vals.theta).eta;
+    // 표가 아직 안 갱신된 (κ, θ) 에서는 그 방법에 마지막으로 쓴 η 를 쓴다 (etaFor).
+    const eta = etaFor(kind);
 
     // ⚠️ 별도의 clear 호출은 없다. drawGrid 가 ctx.clearRect 를 먼저 한다 (core.js).
     drawGrid(ctx, view, colors);
@@ -102,13 +161,22 @@ export function init(root) {
     // ⚠️ themeColors() 가 주는 키는 bg·fg·muted·grid·accent·accent2 뿐이다.
     // `faint` 같은 키는 없다. 등고선은 muted, GD 대조 궤적은 accent2, 선택한 방법은 accent.
     for (const c of [0.15, 0.6, 1.35, 2.4, 3.75]) {
-      drawPolygon(ctx, view, contourPoints(A, c, theta), { stroke: colors.muted, width: 1 });
+      drawPolygon(ctx, view, contourPoints(c, theta), { stroke: colors.muted, width: 1 });
     }
+
+    // 최소점(원점) 표식. ⚠️ drawHandles 로 그리지 말 것 — core.js 의 그 함수는 모든 점을
+    // 똑같은 accent2 원으로 찍는데 attachDrag 는 start 하나만 노출하므로 원점이 끌 수 있는
+    // 것처럼 보인다. 게다가 accent2 는 GD 대조 궤적의 색이고 모든 궤적이 원점에서 끝나서,
+    // 수렴점에서 빨간 핸들이 빨간 선 위에 겹친다. 3편 descent.js 와 같은 흐린 십자다. 스펙 §4
+    const [ox, oy] = view.toPixel([0, 0]);
+    ctx.strokeStyle = colors.muted;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox - 6, oy); ctx.lineTo(ox + 6, oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, oy - 6); ctx.lineTo(ox, oy + 6); ctx.stroke();
 
     // GD 궤적을 항상 대조로 함께 그린다 — 비교가 그림 안에서 끝난다.
     if (kind !== 'gd') {
-      const refEta = tableRow('gd', vals.kappa, vals.theta).eta;
-      const ref = optPath({ kind: 'gd', A, start, steps: vals.steps, eta: refEta });
+      const ref = optPath({ kind: 'gd', A, start, steps: vals.steps, eta: etaFor('gd') });
       drawPath(ctx, view, ref.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)),
         { color: colors.accent2, width: 1.5 });
     }
@@ -116,12 +184,30 @@ export function init(root) {
     const path = optPath({ kind, A, start, steps: vals.steps, eta, ...opts })
       .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
     drawPath(ctx, view, path, { color: colors.accent, width: 2 });
-    drawHandles(ctx, view, [start, [0, 0]], colors);
+    // 각 스텝에 작은 원 — 지그재그의 밀도를 읽는 장치다. 3편 descent.js 와 같다. 스펙 §4
+    ctx.fillStyle = colors.accent;
+    for (const p of path) {
+      const [px, py] = view.toPixel(p);
+      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    drawHandles(ctx, view, [start], colors);
 
     // ── readout ──
-    const rows = KINDS.map((k) => {
-      const r = tableRow(k, vals.kappa, vals.theta);
-      const cell = r.reached ? r.iters.toFixed(1) : '미도달';
+    // 표는 다섯 행이 모두 캐시에 있을 때만 갱신한다. 하나라도 없으면 계산을 디바운스로
+    // 미루고 직전 완성분을 `(갱신 중)` 과 함께 보여준다. 스펙 §3-2
+    const fresh = KINDS.map((k) => cachedRow(k, vals.kappa, vals.theta));
+    const tableReady = fresh.every(Boolean);
+    if (tableReady) shownRows = fresh;
+    else scheduleTable();
+
+    const shown = shownRows || fresh;
+    const rows = KINDS.map((k, i) => {
+      const r = shown[i];
+      const cell = !r
+        ? '—'
+        : r.reached
+          ? `<span class="ok">${r.iters.toFixed(1)}</span>`
+          : '<span class="no">미도달</span>';
       const mark = k === kind ? ' ◀' : '';
       return `<tr><td>${LABEL[k]}</td><td style="text-align:right">${cell}${mark}</td></tr>`;
     }).join('');
@@ -153,12 +239,17 @@ export function init(root) {
       </thead><tbody>${rows}</tbody></table>
       <div style="opacity:.7;font-size:.85em">
         표는 시작점 5개 평균 · 각 방법의 최적 η 기준이다.
-        시작점 드래그는 그려지는 궤적에만 영향을 준다.
+        시작점 드래그는 그려지는 궤적에만 영향을 준다.${tableReady ? ''
+        : ' <b>(갱신 중 — 위 표는 아직 직전 κ·θ 의 값이다)</b>'}
       </div>`;
 
     root.querySelector('.mv-hint').textContent =
       'θ 를 0° 에서 45° 로 밀어보세요. GD·모멘텀 칸은 그대로인데 AdaGrad·RMSProp 칸만 폭증합니다.';
   }
+
+  // 첫 렌더만 동기로 계산한다 — 데모가 채워진 표로 열려야 한다. 여기서 lastEta 가
+  // 다섯 방법 모두 채워지므로 이후 캐시 miss 에서도 궤적이 그려질 η 가 항상 있다.
+  KINDS.forEach((k) => computeRow(k, vals.kappa, vals.theta));
 
   // ⚠️ view.resize() 를 먼저 부르지 않으면 캔버스가 1×1 로 남아 아무것도 그려지지 않는다.
   // 기존 다섯 데모가 모두 이 세 줄로 끝난다 — 그대로 따른다.

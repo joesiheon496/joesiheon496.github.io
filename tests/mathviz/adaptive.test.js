@@ -4,7 +4,9 @@ import {
   rotatedHessian, quadGradA, symEig2, diagPreconditionedKappa,
   KINDS, initState, optimizerStep, effectiveEta, optPath,
   DEFAULT_STARTS, stepsToTolOne, stepsToTol, bestEta, OLS_ETA,
+  olsOffDiagonal, olsOptPath,
 } from '../../static/js/mathviz/adaptive.js';
+import { olsClosed, olsKappa, centerPoints } from '../../static/js/mathviz/optimize.js';
 
 const RAD = (deg) => (deg * Math.PI) / 180;
 
@@ -227,4 +229,43 @@ test('OLS_ETA: 데모 2 가 쓰는 두 방법에 측정된 값이 있다', () =>
   // 스펙 §2-3b 실측. Adam 에 0.1 을 쓰면 중심화 OFF 가 ON 보다 빨라져 서사가 뒤집힌다.
   assert.equal(OLS_ETA.rmsprop, 0.05);
   assert.equal(OLS_ETA.adam, 0.05);
+});
+
+const SKEWED = [[0.5, 0.2], [1.0, 0.6], [1.5, 0.9], [2.0, 1.4], [2.5, 1.7], [3.0, 2.2]];
+
+test('olsOffDiagonal: 무관항이 2Σx 이고 중심화하면 0 이 된다', () => {
+  // 이것이 이 글의 언어로 "축이 맞았다" 의 계량이다. 스펙 §2-3
+  assert.ok(Math.abs(olsOffDiagonal(SKEWED) - 21) < 1e-12, `${olsOffDiagonal(SKEWED)}`);
+  const { points: C } = centerPoints(SKEWED);
+  assert.ok(Math.abs(olsOffDiagonal(C)) < 1e-12, `${olsOffDiagonal(C)}`);
+});
+
+test('중심화가 κ 를 낮춘다', () => {
+  const before = olsKappa(SKEWED).kappa;
+  const after = olsKappa(centerPoints(SKEWED).points).kappa;
+  assert.ok(before > 20 && before < 40, `실측 29.5 근처여야 한다: ${before}`);
+  assert.ok(after < 2, `실측 1.4 근처여야 한다: ${after}`);
+});
+
+test('olsOptPath: 중심화 여부와 무관하게 원 좌표로 돌려주고 닫힌 해로 수렴한다', () => {
+  // 3편 §3-4 규약. 환산을 호출자에게 맡기면 데모마다 같은 함정을 다시 밟는다.
+  const sol = olsClosed(SKEWED);
+  for (const center of [false, true]) {
+    const path = olsOptPath({ points: SKEWED, steps: 400, kind: 'gd', center });
+    const last = path[path.length - 1];
+    assert.ok(Math.hypot(last[0] - sol[0], last[1] - sol[1]) < 1e-9,
+      `center=${center} 끝점=${last} 닫힌해=${sol}`);
+    assert.deepEqual(path[0], [0, 0], '시작은 원점이다');
+    assert.equal(path.length, 401);
+  }
+});
+
+test('olsOptPath: 중심화하면 축별 보폭이 실제로 빨라진다', () => {
+  // 정렬되면 RMSProp 이 듣는다. 스펙 §2-3 의 "결정적 칸".
+  const sol = olsClosed(SKEWED);
+  const dist = (p) => Math.hypot(p[0] - sol[0], p[1] - sol[1]);
+  const off = olsOptPath({ points: SKEWED, steps: 60, kind: 'rmsprop', center: false, eta: 0.05 });
+  const on = olsOptPath({ points: SKEWED, steps: 60, kind: 'rmsprop', center: true, eta: 0.05 });
+  assert.ok(dist(on[60]) < dist(off[60]),
+    `중심화 ON 이 더 가까워야 한다: ON=${dist(on[60])} OFF=${dist(off[60])}`);
 });

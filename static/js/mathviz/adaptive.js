@@ -1,4 +1,6 @@
 // static/js/mathviz/adaptive.js
+import { olsKappa, centerPoints } from './optimize.js';
+
 // 4편 — 축별 보폭(적응적 학습률)의 순수 수학.
 //
 // 축 문장: **축별 보폭은 축이 좌표축과 맞을 때만 κ 를 지운다.**
@@ -234,4 +236,51 @@ export function bestEta({
     if (r.iters < best.iters) best = { eta, iters: r.iters, reached: r.reached };
   }
   return best;
+}
+
+/**
+ * OLS Hessian(= 2XᵀX) 의 무관항 2Σx.
+ *
+ * 이 글의 언어로 "축이 좌표축과 맞았는가" 의 계량이다. x 를 중심화하면 0 이 되고,
+ * 그때 비로소 축별 보폭이 듣는다. 3편의 중심화 토글이 실은 이 일을 하고 있었다.
+ */
+export function olsOffDiagonal(points) {
+  return 2 * points.reduce((s, [x]) => s + x, 0);
+}
+
+/**
+ * OLS 를 임의의 방법으로 푸는 궤적. 3편 olsGdPath 와 같은 규약 —
+ * 반환값은 **항상 원 좌표** [a, b] 다 (center 여부와 무관).
+ *   a = a′,  b = b′ − a′·x̄
+ * 환산을 호출자에게 맡기면 데모마다 3편 §3-4 함정을 다시 밟는다.
+ *
+ * eta 를 주지 않으면 GD·모멘텀은 최적 학습률 2/(λ_min+λ_max) 를, 축별 보폭 쪽은
+ * OLS_ETA 를 쓴다. Hessian = 2XᵀX 이므로 고윳값이 2l 이고 최적값이 2/(2l₁+2l₂) 다.
+ */
+export function olsOptPath({ points, steps, kind = 'gd', center = false, eta, ...opts }) {
+  const { points: P, xbar } = center ? centerPoints(points) : { points, xbar: 0 };
+  const { l1, l2 } = olsKappa(P);
+  const useEta = eta !== undefined
+    ? eta
+    : (kind === 'gd' || kind === 'momentum' ? 2 / (2 * l1 + 2 * l2) : OLS_ETA[kind]);
+
+  let a = 0;
+  let b = 0;
+  let st = initState();
+  const out = [[a, b - a * xbar]];
+  for (let i = 0; i < steps; i++) {
+    let g0 = 0;
+    let g1 = 0;
+    for (const [x, y] of P) {
+      const r = a * x + b - y;
+      g0 += 2 * r * x;
+      g1 += 2 * r;
+    }
+    const r = optimizerStep(kind, st, [g0, g1], { eta: useEta, ...opts });
+    st = r.state;
+    a -= r.step[0];
+    b -= r.step[1];
+    out.push([a, b - a * xbar]);
+  }
+  return out;
 }

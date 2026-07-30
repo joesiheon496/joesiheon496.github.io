@@ -559,6 +559,17 @@ test('시작점 [1,1] 은 θ=45° 에서 고유벡터라 한 스텝에 끝난다
   assert.ok(!DEFAULT_STARTS.some(([x, y]) => Math.abs(Math.abs(x) - Math.abs(y)) < 1e-9),
     'DEFAULT_STARTS 에 |x| = |y| 인 점이 있으면 45° 에서 고유벡터가 된다');
   assert.equal(DEFAULT_STARTS.length, 5);
+
+  // ⚠️ 위 단정들은 시작점이 하나뿐이라 "평균에 대해 η 를 고른다" 와 "시작점마다 고른다" 를
+  // 구별하지 못한다 — 하나짜리 배열에서는 두 전략이 같은 연산이다. 서로 다른 고윳값의
+  // 고유벡터 둘을 함께 넣으면 갈린다. θ=45° 에서 [1,1] 은 λ=1, [1,-1] 은 λ=100 의
+  // 고유벡터라, 공유 η 하나로는 둘을 한 스텝에 없앨 수 없다.
+  // 실측: 공유 η 는 209 회, 시작점마다 고르면 각각 1 회(평균 1)다.
+  const mixed = bestEta({ kind: 'gd', A, starts: [[1, 1], [1, -1]] });
+  assert.ok(mixed.iters > 5,
+    `서로 다른 고유벡터 둘에는 공유 η 하나로 한 스텝에 도달할 수 없다: ${mixed.iters}`);
+  assert.equal(bestEta({ kind: 'gd', A, starts: [[1, -1]] }).iters, 1,
+    '각 고유벡터 단독으로는 1 회여야 한다 — 위 단정이 그 대비다');
 });
 
 test('OLS_ETA: 데모 2 가 쓰는 두 방법에 측정된 값이 있다', () => {

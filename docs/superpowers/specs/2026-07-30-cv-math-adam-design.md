@@ -348,7 +348,8 @@ rotatedHessian(kappa, theta)                 → [[a,b],[b,c]]
 diagPreconditionedKappa(A)                   → κ(D⁻¹A),  D = diag(A₁₁, A₂₂)
 optimizerStep(kind, state, g, opts)          → {step, state}
 optPath({kind, A, start, steps, eta, ...})   → 점 배열 (길이 steps+1)
-stepsToTol({kind, A, starts, eta, tol, ...}) → 시작점 배열의 평균 반복수, 미도달이면 null
+stepsToTolOne({kind, A, start, eta, tol, maxIters, ...}) → 반복수, 미도달이면 maxIters
+stepsToTol({kind, A, starts, eta, tol, maxIters, ...})   → {iters, reached}
 bestEta({kind, A, starts, tol, maxIters})    → {eta, iters} — 평균 반복수를 최소화하는 η
 DEFAULT_STARTS                               → §2 의 시작점 5개
 PRESET_ETA                                   → {[kind]: eta} — η 슬라이더 기본값 전용
@@ -356,6 +357,11 @@ PRESET_ETA                                   → {[kind]: eta} — η 슬라이�
 
 `bestEta` 의 그리드 기본값은 §2 와 같다 (`η = 10^k`, `k = −6…1`, 간격 `0.08`, 상한 4000).
 이 값을 바꾸면 §2 의 표와 테스트 기대값이 함께 흔들린다.
+
+`stepsToTol` 이 **`{iters, reached}` 를 돌려주는 것**이 규약이다. 미도달을 `null` 로 돌려주면
+`bestEta` 가 η 를 고를 때 "미도달한 η 들" 사이의 우열을 못 가려 탐색이 성립하지 않는다.
+그래서 미도달 시작점은 `maxIters` 로 세어 평균에 넣고, `reached` 로 그 사실을 따로 알린다.
+데모는 `reached === false` 일 때 `미도달` 을 표시한다 (§3-6).
 
 `kind` 는 `'gd' | 'momentum' | 'adagrad' | 'rmsprop' | 'adam'` 다섯이다.
 `'rmsprop'` 과 `'adam'` 은 **분리된 구현**이며 `'adam'` 에 `β₁=0` 을 넣어 RMSProp 을
@@ -372,7 +378,11 @@ PRESET_ETA                                   → {[kind]: eta} — η 슬라이�
 1. `rotatedHessian` 의 고윳값이 θ 와 무관하게 `{1, κ}` — 회전 불변, **1e-12**
 2. **θ=45° 에서 `diagPreconditionedKappa(A) = κ`** — 축 문장의 코드화, 상대오차 **1e-9**
 3. **θ=0° 에서 `diagPreconditionedKappa(A) = 1`** — 완전 정렬, **1e-12**
-4. GD·모멘텀의 반복수가 θ 와 무관 — θ ∈ {0°,15°,30°,45°}, κ=100, **±3 회**
+4. GD·모멘텀의 반복수가 θ 와 무관 — θ ∈ {0°,15°,30°,45°}, κ=100, **상대 5% 이내**.
+   > ⚠️ **`±3 회` 로 잡으면 옳은 구현이 실패한다.** 실측 GD 는 358.0 / 369.0 / 367.0 / 350.6
+   > 으로 폭이 18.4 회다. 회전 불변성이 깨진 것이 아니라 `bestEta` 의 로그 그리드(간격 0.08)가
+   > θ 마다 다른 η 를 고르기 때문이다. 평균 361.2 기준 최대 편차 2.9% 이므로 5% 가 맞다.
+   > 모멘텀은 49.8 / 51.0 / 51.0 / 49.2 로 편차 1.5% 다.
 5. **RMSProp 이 θ=0° 에서 45° 대비 10배 이상 빠르다** — κ=100 (실측 106배, §2-1)
 6. **RMSProp 이 GD 보다 나쁠 수 있다** — κ=10, θ=45° 에서 반복수가 GD 보다 크다
 7. **Adam 의 θ 민감도가 RMSProp 보다 훨씬 작다** — `adam(45°)/adam(0°) < 1.5` 이고

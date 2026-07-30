@@ -147,8 +147,8 @@ export function optPath({ kind, A, start, steps, eta, ...opts }) {
     const r = optimizerStep(kind, st, g, { eta, ...opts });
     st = r.state;
     p = [p[0] - r.step[0], p[1] - r.step[1]];
-    out.push([p[0], p[1]]);
     if (!Number.isFinite(p[0]) || !Number.isFinite(p[1])) break;
+    out.push([p[0], p[1]]);
   }
   return out;
 }

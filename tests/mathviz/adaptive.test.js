@@ -116,6 +116,18 @@ test('optPath: 잘 잡은 η 로 GD 가 최소점에 가까워진다', () => {
   assert.ok(Math.hypot(last[0], last[1]) < 1e-6, `끝점: ${last}`);
 });
 
+test('optPath: 발산해도 유한하지 않은 점을 돌려주지 않는다', () => {
+  // η 를 발산 문턱 2/κ 훨씬 위로 밀면 궤적이 터진다. 그때도 마지막 점이 유한해야 한다 —
+  // 호출자가 path[path.length-1] 을 "현재 위치" 로 읽기 때문이다.
+  const A = rotatedHessian(30, 0);
+  const path = optPath({ kind: 'gd', A, start: [2, 1], steps: 200, eta: 5 });
+  assert.ok(path.length >= 1, '적어도 시작점은 있어야 한다');
+  assert.ok(path.length < 201, '발산했으면 끝까지 가지 않는다');
+  for (const [x, y] of path) {
+    assert.ok(Number.isFinite(x) && Number.isFinite(y), `유한하지 않은 점: ${x}, ${y}`);
+  }
+});
+
 test('KINDS: 다섯 방법이고 전부 optimizerStep 을 통과한다', () => {
   assert.equal(KINDS.length, 5);
   for (const kind of KINDS) {

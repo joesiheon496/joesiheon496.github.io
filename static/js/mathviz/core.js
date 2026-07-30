@@ -310,3 +310,63 @@ export function makeToggles(el, defs, onInput) {
 
   return { getValues, setValues };
 }
+
+/**
+ * 배타 선택 행. makeSliders / makeToggles 와 같은 반환 규약({getValues, setValues})을
+ * 따르되 값은 선택된 옵션의 문자열이다.
+ *
+ * makeToggles 를 확장하지 않는 이유: 그 함수는 항목마다 독립적인 boolean 을 돌려주도록
+ * 되어 있어 배타성을 끼우면 반환 규약이 깨진다.
+ *
+ * ⚠️ makeSliders 가 host 를 비우므로(el.innerHTML = '') 반드시 그 뒤에 부른다.
+ * 이 함수는 makeToggles 처럼 비우지 않고 append 한다.
+ */
+export function makeRadios(el, def, onInput) {
+  const row = document.createElement('div');
+  row.className = 'mv-slider';
+  const label = document.createElement('label');
+  label.textContent = def.label;
+
+  const box = document.createElement('span');
+  box.style.gridColumn = 'span 2';
+  box.style.display = 'flex';
+  box.style.flexWrap = 'wrap';
+  box.style.gap = '0.1rem 0.6rem';
+
+  const name = `mv-radio-${def.key}-${Math.random().toString(36).slice(2, 8)}`;
+  const inputs = [];
+
+  def.options.forEach((o) => {
+    const wrap = document.createElement('label');
+    wrap.style.display = 'inline-flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = '0.2rem';
+    wrap.style.fontWeight = 'normal';
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = name;
+    input.value = o.value;
+    input.checked = o.value === def.value;
+    input.style.width = 'auto';
+    input.addEventListener('change', () => { if (input.checked) onInput(getValues()); });
+    const text = document.createElement('span');
+    text.textContent = o.label;
+    wrap.append(input, text);
+    box.appendChild(wrap);
+    inputs.push(input);
+  });
+
+  function getValues() {
+    const hit = inputs.find((i) => i.checked);
+    return { [def.key]: hit ? hit.value : def.value };
+  }
+
+  function setValues(obj) {
+    if (!(def.key in obj)) return;
+    inputs.forEach((i) => { i.checked = i.value === obj[def.key]; });
+  }
+
+  row.append(label, box);
+  el.appendChild(row);
+  return { getValues, setValues };
+}

@@ -105,6 +105,17 @@ test('optimizerStep: adagrad 의 유효 학습률이 반복과 함께 줄어든�
   assert.ok(last[0] < first[0] / 10, `${first[0]} → ${last[0]}`);
 });
 
+test('effectiveEta: t=0 에서 세 방법 모두 η 를 그대로 돌려준다', () => {
+  // ⚠️ 한 스텝도 안 밟았으면 유효 학습률은 η 다. adagrad·rmsprop 쪽에 t=0 가드가 없던
+  // 동안에는 s = [0,0] 이라 η/ε = η·1e8 이 나와서, 데모 1 의 반복 슬라이더를 최솟값 0 으로
+  // 내리면 η=2.51 이 2.51e+8 로 찍혔다. adam 분기는 처음부터 가드가 있어 함수가 스스로
+  // 모순이었다. 이 readout 의 존재 이유가 믿을 수 있는 숫자인데(스펙 §3-5) 최솟값에서 무너졌다.
+  const eta = 2.51;
+  for (const kind of ['adagrad', 'rmsprop', 'adam']) {
+    assert.deepEqual(effectiveEta(kind, initState(), { eta }), [eta, eta], kind);
+  }
+});
+
 test('optPath: 길이가 steps+1 이고 첫 점이 시작점이다', () => {
   const A = rotatedHessian(10, 0);
   const path = optPath({ kind: 'gd', A, start: [2, 1], steps: 7, eta: 0.05 });

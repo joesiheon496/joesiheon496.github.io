@@ -121,10 +121,16 @@ export function optimizerStep(kind, state, g, opts = {}) {
  *
  * Adam 은 **편향 보정 후의 v̂** 를 기준으로 한다. 보정 전 값을 찍으면 초기 몇 스텝이
  * 실제 보폭과 어긋난 숫자로 보인다. t=0 이면 보정 분모가 0 이므로 η 를 그대로 돌려준다.
+ *
+ * ⚠️ t=0 가드는 **세 방법 모두**에 있어야 한다. AdaGrad·RMSProp 쪽에만 없었을 때
+ * s = [0,0] 이라 η/ε = η·1e8 이 나와서, 데모 1 의 반복 슬라이더를 0 으로 내리면
+ * η=2.51 이 유효 학습률 2.51e+8 로 찍혔다. 한 스텝도 안 밟았으면 유효 학습률은 η 다.
+ * 이 readout 의 존재 이유가 "믿을 수 있는 숫자" 인데(스펙 §3-5) 최솟값에서 무너졌다.
  */
 export function effectiveEta(kind, state, opts = {}) {
   const { eta = 0.1, beta2 = 0.999, eps = 1e-8, biasCorrect = true } = opts;
   if (kind === 'adagrad' || kind === 'rmsprop') {
+    if (state.t === 0) return [eta, eta];
     return [eta / (Math.sqrt(state.s[0]) + eps), eta / (Math.sqrt(state.s[1]) + eps)];
   }
   if (kind === 'adam') {
@@ -171,7 +177,10 @@ export const DEFAULT_STARTS = [
  * ⚠️ 데모 1 과 공유하지 않는다. 회전 이차함수의 RMSProp 최적 η 는 2.51 인데 OLS 에서는
  * 0.05 로 **50배** 다르다. 한 상수를 양쪽에 쓰면 한쪽이 반드시 망가진다.
  * ⚠️ Adam 에 0.1 을 쓰지 말 것. 치우침 배치에서 중심화 OFF 72 회가 ON 120 회보다 빨라져
- * 글이 주장하는 것과 반대되는 표가 화면에 뜬다. 0.05 에서는 179 → 121 로 정상이다.
+ * 글이 주장하는 것과 반대되는 표가 화면에 뜬다. 0.05 에서는 **179 → 132** 로 정상이다.
+ * (132 는 데모가 쓰는 자 — 원 좌표에서 원본 닫힌 해까지의 거리 — 로 잰 값이다. 스펙
+ * §2-3b 의 초판 표에 적힌 121 은 중심화 좌표계에서 중심화된 닫힌 해로 잰 값이고, d0 가
+ * 1.72배 달라서 갈린다. 화면과 글이 인용하는 것은 132 다.)
  *
  * GD·모멘텀은 최적값 2/(λ_min+λ_max) 를 자동 계산하므로 여기 없다.
  */
@@ -256,6 +265,10 @@ export function olsOffDiagonal(points) {
  *
  * eta 를 주지 않으면 GD·모멘텀은 최적 학습률 2/(λ_min+λ_max) 를, 축별 보폭 쪽은
  * OLS_ETA 를 쓴다. Hessian = 2XᵀX 이므로 고윳값이 2l 이고 최적값이 2/(2l₁+2l₂) 다.
+ *
+ * ⚠️ OLS_ETA 에 없는 kind 를 eta 없이 부르면 던진다. 조용히 일반 기본값(0.1)으로
+ * 넘어가면 그럴듯하지만 눈에 보이게 틀린 맞춤이 그려지고, 그게 프리셋 누락 때문인지
+ * 방법의 성질 때문인지 화면에서 구별할 수 없다. 지금 'adagrad'·'momentum' 에 값이 없다.
  */
 export function olsOptPath({ points, steps, kind = 'gd', center = false, eta, ...opts }) {
   const { points: P, xbar } = center ? centerPoints(points) : { points, xbar: 0 };
@@ -263,6 +276,12 @@ export function olsOptPath({ points, steps, kind = 'gd', center = false, eta, ..
   const useEta = eta !== undefined
     ? eta
     : (kind === 'gd' || kind === 'momentum' ? 2 / (2 * l1 + 2 * l2) : OLS_ETA[kind]);
+  if (useEta === undefined) {
+    throw new Error(
+      `olsOptPath: '${kind}' 의 고정 학습률이 OLS_ETA 에 없다. `
+      + 'eta 를 직접 주거나 OLS_ETA 에 실측값을 추가할 것 (스펙 §2-3b).',
+    );
+  }
 
   let a = 0;
   let b = 0;

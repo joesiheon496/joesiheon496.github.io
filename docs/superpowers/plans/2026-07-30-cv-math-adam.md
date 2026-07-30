@@ -26,7 +26,9 @@
 - Hugo 빌드에는 `go` 가 PATH 에 필요하다: `export PATH="$PATH:/c/Program Files/Go/bin"`
 - 테스트는 **인자 없이** `node --test` 로 돌린다. `node --test tests/` 는 Node 24 에서
   디렉토리를 모듈로 해석해 실패한다. `npm test` 가 이미 그렇게 설정돼 있다.
-- 테스트 기준선은 **48개**다. 이 계획이 끝나면 **58개**여야 한다.
+- 테스트 기준선은 **48개**다. 이 계획이 끝나면 **72개**가 된다 (신규 `test()` 블록 24개).
+  스펙 §8 이 말한 "10개" 는 **검증 항목 수**이고 `test()` 블록 수가 아니다. 개수를 58 로
+  맞추려고 테스트를 합치지 말 것 — 항목 하나에 여러 단정이 들어가면 실패 지점을 못 찾는다.
 - 수치 허용오차는 기본 **1e-9**. 예외는 두 곳이며 이유가 있다:
   - `diagPreconditionedKappa` 의 θ=45° 항등식은 **상대오차 1e-9** (대각 성분 차가 실측
     2.1e-14 로 0 이 아니다)
@@ -40,7 +42,7 @@
   시작점마다 다시 고르면 "그 점에 정확히 착지하는 η" 를 찾아내 반복수가 인공적으로 1 이 된다.
   스펙 §3-1, §3-2
 - readout 표 라벨에 **"시작점 5개 평균 · 각 방법의 최적 η 기준"** 을 둘 다 명시한다.
-  없으면 드래그 점을 옮기거나 η 슬라이더를 움직였는데 표가 안 변하는 것을 독자가 버그로 읽는다.
+  없으면 시작점을 옮겼는데 표가 안 변하는 것을 독자가 버그로 읽는다.
 - 커밋은 각 Task 끝에서. 푸시는 사람이 승인할 때만.
 
 ## File Structure
@@ -471,13 +473,13 @@ which is the whole reason rmsprop was invented."
   - `stepsToTolOne({kind, A, start, eta, tol, maxIters, ...opts}) → number` — 미도달이면 `maxIters`
   - `stepsToTol({kind, A, starts, eta, tol, maxIters, ...opts}) → {iters: number, reached: boolean}`
   - `bestEta({kind, A, starts, tol, maxIters, kMin, kMax, kStep, ...opts}) → {eta, iters, reached}`
-  - `PRESET_ETA: Record<string, number>`
+  - `OLS_ETA: Record<string, number>` — 데모 2 전용 고정 학습률
 
 - [ ] **Step 1: 실패하는 테스트를 쓴다**
 
 ```js
 // import 문에 추가:
-//   DEFAULT_STARTS, stepsToTolOne, stepsToTol, bestEta, PRESET_ETA,
+//   DEFAULT_STARTS, stepsToTolOne, stepsToTol, bestEta, OLS_ETA,
 
 test('stepsToTol: 미도달을 maxIters 로 세고 reached 로 알린다', () => {
   // reached 를 두는 이유: 미도달을 null 로 돌려주면 bestEta 가 "미도달한 η 들" 사이의
@@ -554,10 +556,10 @@ test('시작점 [1,1] 은 θ=45° 에서 고유벡터라 한 스텝에 끝난다
   assert.equal(DEFAULT_STARTS.length, 5);
 });
 
-test('PRESET_ETA: 다섯 방법 모두 값이 있고 양수다', () => {
-  for (const kind of KINDS) {
-    assert.ok(PRESET_ETA[kind] > 0, `${kind}: ${PRESET_ETA[kind]}`);
-  }
+test('OLS_ETA: 데모 2 가 쓰는 두 방법에 측정된 값이 있다', () => {
+  // 스펙 §2-3b 실측. Adam 에 0.1 을 쓰면 중심화 OFF 가 ON 보다 빨라져 서사가 뒤집힌다.
+  assert.equal(OLS_ETA.rmsprop, 0.05);
+  assert.equal(OLS_ETA.adam, 0.05);
 });
 ```
 
@@ -581,13 +583,19 @@ export const DEFAULT_STARTS = [
   [2.5, 0.7], [1.8, -1.2], [0.4, 2.2], [-2.1, 1.5], [-0.9, -2.4],
 ];
 
-/** η 슬라이더의 기본값 전용. readout 표는 이 값이 아니라 bestEta 를 쓴다. 스펙 §3-2 */
-export const PRESET_ETA = {
-  gd: 0.02,
-  momentum: 0.004,
-  adagrad: 0.5,
+/**
+ * 데모 2(OLS)의 고정 학습률. 스펙 §2-3b 에서 실측한 값이다.
+ *
+ * ⚠️ 데모 1 과 공유하지 않는다. 회전 이차함수의 RMSProp 최적 η 는 2.51 인데 OLS 에서는
+ * 0.05 로 **50배** 다르다. 한 상수를 양쪽에 쓰면 한쪽이 반드시 망가진다.
+ * ⚠️ Adam 에 0.1 을 쓰지 말 것. 치우침 배치에서 중심화 OFF 72 회가 ON 120 회보다 빨라져
+ * 글이 주장하는 것과 반대되는 표가 화면에 뜬다. 0.05 에서는 179 → 121 로 정상이다.
+ *
+ * GD·모멘텀은 최적값 2/(λ_min+λ_max) 를 자동 계산하므로 여기 없다.
+ */
+export const OLS_ETA = {
   rmsprop: 0.05,
-  adam: 0.1,
+  adam: 0.05,
 };
 
 /** 한 시작점에서 목표에 도달하는 반복수. 미도달이면 maxIters. */
@@ -767,14 +775,14 @@ export function olsOffDiagonal(points) {
  * 환산을 호출자에게 맡기면 데모마다 3편 §3-4 함정을 다시 밟는다.
  *
  * eta 를 주지 않으면 GD·모멘텀은 최적 학습률 2/(λ_min+λ_max) 를, 축별 보폭 쪽은
- * PRESET_ETA 를 쓴다. Hessian = 2XᵀX 이므로 고윳값이 2l 이고 최적값이 2/(2l₁+2l₂) 다.
+ * OLS_ETA 를 쓴다. Hessian = 2XᵀX 이므로 고윳값이 2l 이고 최적값이 2/(2l₁+2l₂) 다.
  */
 export function olsOptPath({ points, steps, kind = 'gd', center = false, eta, ...opts }) {
   const { points: P, xbar } = center ? centerPoints(points) : { points, xbar: 0 };
   const { l1, l2 } = olsKappa(P);
   const useEta = eta !== undefined
     ? eta
-    : (kind === 'gd' || kind === 'momentum' ? 2 / (2 * l1 + 2 * l2) : PRESET_ETA[kind]);
+    : (kind === 'gd' || kind === 'momentum' ? 2 / (2 * l1 + 2 * l2) : OLS_ETA[kind]);
 
   let a = 0;
   let b = 0;
@@ -932,7 +940,7 @@ makeSliders."
 
 **Interfaces:**
 - Consumes: Task 1~3 의 `rotatedHessian`·`diagPreconditionedKappa`·`optPath`·`bestEta`·
-  `effectiveEta`·`initState`·`optimizerStep`·`quadGradA`·`KINDS`·`PRESET_ETA`·`DEFAULT_STARTS`,
+  `effectiveEta`·`initState`·`optimizerStep`·`quadGradA`·`KINDS`·`DEFAULT_STARTS`,
   Task 5 의 `makeRadios`, 기존 `core.js` 의 `themeColors`·`onThemeChange`·`createView`·
   `drawGrid`·`drawPolygon`·`drawPath`·`drawHandles`·`makeSliders`·`attachDrag`
 - Produces: `init(root: HTMLElement)` — shortcode 가 호출하는 진입점
@@ -957,7 +965,7 @@ import {
 } from './core.js';
 import {
   rotatedHessian, diagPreconditionedKappa, optPath, bestEta, effectiveEta,
-  initState, optimizerStep, quadGradA, KINDS, PRESET_ETA, DEFAULT_STARTS,
+  initState, optimizerStep, quadGradA, KINDS, DEFAULT_STARTS,
 } from './adaptive.js';
 
 const WORLD = { xmin: -3, xmax: 3, ymin: -3, ymax: 3 };
@@ -971,9 +979,12 @@ const SLIDERS = [
   { key: 'kappa', label: 'κ (조건수)', min: 1, max: 100, step: 1, value: 30, fmt: (v) => v.toFixed(0) },
   { key: 'theta', label: 'θ (기울기)', min: 0, max: 90, step: 1, value: 0, fmt: (v) => `${v.toFixed(0)}°` },
   { key: 'steps', label: '반복', min: 0, max: 400, step: 1, value: 60, fmt: (v) => v.toFixed(0) },
-  { key: 'logEta', label: 'η (로그)', min: -4, max: 0.5, step: 0.02, value: Math.log10(PRESET_ETA.gd),
-    fmt: (v) => Math.pow(10, v).toPrecision(3) },
 ];
+
+// ⚠️ η 슬라이더는 두지 않는다. bestEta 가 고른 값을 쓰고 readout 에 표시한다.
+// 절대 η 슬라이더로 되돌리지 말 것 — GD 발산 문턱 2/κ 가 이 데모의 κ 범위(1~100)에서
+// 100배 움직여서, κ=30 에 맞춘 기본값은 κ=100 에서 발산하고 κ=1 에서는 최적의 1/30 이 된다.
+// 계획서 초안이 절대값이었고 사전 측정에서 모멘텀 기본값이 미도달로 잡혔다. 스펙 §4
 
 const RADIO = {
   key: 'kind', label: '방법', value: 'gd',
@@ -999,19 +1010,13 @@ export function init(root) {
   const ctx = canvas.getContext('2d');   // draw() 안에서 매번 얻지 않는다 (기존 데모와 같다)
   const view = createView(canvas, WORLD);
   let start = [2.5, 0.7];   // ⚠️ |x| ≠ |y| — 스펙 §3-1
-  let vals = { kappa: 30, theta: 0, steps: 60, logEta: Math.log10(PRESET_ETA.gd) };
+  let vals = { kappa: 30, theta: 0, steps: 60 };
   let kind = 'gd';
 
   const sliderHost = root.querySelector('.mv-sliders');
-  const sliders = makeSliders(sliderHost, SLIDERS, (v) => { vals = v; draw(); });
+  makeSliders(sliderHost, SLIDERS, (v) => { vals = v; draw(); });
   // ⚠️ makeSliders 가 host 를 비우므로 반드시 그 뒤에 부른다.
-  makeRadios(sliderHost, RADIO, (v) => {
-    kind = v.kind;
-    // 방법을 바꾸면 η 슬라이더가 그 방법의 프리셋으로 점프한다. 표는 영향받지 않는다.
-    vals = { ...vals, logEta: Math.log10(PRESET_ETA[kind]) };
-    sliders.setValues({ logEta: vals.logEta });
-    draw();
-  });
+  makeRadios(sliderHost, RADIO, (v) => { kind = v.kind; draw(); });
 
   attachDrag(canvas, view, () => [start], (i, p) => { start = p; draw(); });
 
@@ -1037,8 +1042,9 @@ export function init(root) {
     const colors = themeColors();
     const theta = (vals.theta * Math.PI) / 180;
     const A = rotatedHessian(vals.kappa, theta);
-    const eta = Math.pow(10, vals.logEta);
     const opts = kind === 'momentum' ? { beta: betaFor(vals.kappa) } : {};
+    // η 는 표와 궤적이 같은 값을 쓴다 — 캐시된 bestEta 결과에서 가져온다.
+    const eta = tableRow(kind, vals.kappa, vals.theta).eta;
 
     // ⚠️ 별도의 clear 호출은 없다. drawGrid 가 ctx.clearRect 를 먼저 한다 (core.js).
     drawGrid(ctx, view, colors);
@@ -1051,7 +1057,8 @@ export function init(root) {
 
     // GD 궤적을 항상 대조로 함께 그린다 — 비교가 그림 안에서 끝난다.
     if (kind !== 'gd') {
-      const ref = optPath({ kind: 'gd', A, start, steps: vals.steps, eta: PRESET_ETA.gd });
+      const refEta = tableRow('gd', vals.kappa, vals.theta).eta;
+      const ref = optPath({ kind: 'gd', A, start, steps: vals.steps, eta: refEta });
       drawPath(ctx, view, ref.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y)),
         { color: colors.accent2, width: 1.5 });
     }
@@ -1088,7 +1095,7 @@ export function init(root) {
 
     root.querySelector('.mv-matrix-host').innerHTML = '';
     root.querySelector('.mv-readout').innerHTML = `
-      <div>κ = ${vals.kappa}, θ = ${vals.theta}°, η = ${eta.toPrecision(3)}</div>
+      <div>κ = ${vals.kappa}, θ = ${vals.theta}°, η = ${eta.toPrecision(3)} (자동 선택)</div>
       <div>대각 전처리 후 κ(D⁻¹A) = <b>${kd.toPrecision(4)}</b></div>
       ${effLine}
       <table class="mv-table"><thead>
@@ -1096,7 +1103,7 @@ export function init(root) {
       </thead><tbody>${rows}</tbody></table>
       <div style="opacity:.7;font-size:.85em">
         표는 시작점 5개 평균 · 각 방법의 최적 η 기준이다.
-        드래그 점과 η 슬라이더는 그려지는 궤적에만 영향을 준다.
+        시작점 드래그는 그려지는 궤적에만 영향을 준다.
       </div>`;
 
     root.querySelector('.mv-hint').textContent =
@@ -1125,7 +1132,8 @@ hugo server -D --bind 0.0.0.0 --port 1313
 2. θ 를 45° 로 밀면 **RMSProp·AdaGrad 칸만 폭증하고 GD·모멘텀 칸은 거의 안 변한다**
 3. `κ(D⁻¹A)` 가 θ=0° 에서 1, θ=45° 에서 κ 를 찍는다
 4. AdaGrad 를 고르고 반복을 400 까지 밀면 유효 학습률 숫자가 줄어든다
-5. 방법을 바꾸면 η 슬라이더가 점프하지만 **표는 안 변한다** (라벨이 그 이유를 설명한다)
+5. readout 의 η 가 방법·κ·θ 에 따라 자동으로 바뀌고 `(자동 선택)` 이라고 표시된다.
+   κ 를 100 까지 올려도 어떤 방법도 발산하지 않는다 (절대 프리셋이었다면 발산했다)
 6. 표 아래 라벨에 "시작점 5개 평균 · 각 방법의 최적 η 기준" 이 둘 다 보인다
 7. κ 를 100 으로 올리면 어느 칸에 `미도달` 이 뜬다
 8. light / dark 를 전환해도 등고선·궤적이 읽힌다
@@ -1246,7 +1254,7 @@ export function init(root) {
     const dist = Math.hypot(now[0] - closed[0], now[1] - closed[1]);
 
     // 스펙 §5 — 세 방법의 반복수를 중심화 ON/OFF 로 나란히 놓아 배율을 보여준다.
-    // 여기서는 회전이 없으므로 bestEta 가 아니라 고정 PRESET_ETA(olsOptPath 의 기본값)로
+    // 여기서는 회전이 없으므로 bestEta 가 아니라 고정 OLS_ETA(olsOptPath 의 기본값)로
     // 재고, 그 사실을 라벨에 밝힌다.
     const reach = (k, c) => {
       const sol = olsClosed(pts);

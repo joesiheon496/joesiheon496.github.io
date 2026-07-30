@@ -1411,7 +1411,13 @@ grep -c "raw HTML omitted" /tmp/hugo-t8/posts/adam/index.html   # 0 이어야 �
 grep -o 'katex' /tmp/hugo-t8/posts/adam/index.html | head -1     # katex 가 걸려야 한다
 ```
 
-Expected: ERROR 없음, `Pages 132`, `mv-demo` 2 개, `raw HTML omitted` 0 개
+Expected: ERROR 없음, `Pages 136`, `mv-demo` 2 개, `raw HTML omitted` 0 개
+
+> ⚠️ **136 이 맞다. 132 가 아니다.** 기준선 131 + 새 글 1 + **태그 페이지 4** 다.
+> front matter 의 `Adam`·`RMSProp` 은 사이트에 없던 태그라서, Hugo 가 태그마다
+> term 페이지와 `page/1` 별칭을 하나씩 만든다 (2 태그 × 2 = 4). 계획서 초안이
+> 분류 페이지를 빼고 132 로 적었고 Task 8 구현자가 이 모순을 잡아 멈췄다.
+> **페이지 수를 맞추려고 태그를 지우지 말 것** — 이 글의 주제가 Adam 과 RMSProp 이다.
 
 - [ ] **Step 4: 새 글이 목록에 나오는지 확인한다**
 
@@ -1486,7 +1492,8 @@ for p in 2d-transform-matrix svd gradient-descent adam; do
   echo -n "$p: "; grep -c "mv-demo" /tmp/hugo-final/posts/$p/index.html
 done
 ```
-Expected: ERROR 없음, `Pages 132`. 1편 1개, 2편 2개, 3편 2개, 4편 2개의 `mv-demo`
+Expected: ERROR 없음, `Pages 136` (131 + 글 1 + 새 태그 2개의 분류 페이지 4).
+1편 1개, 2편 2개, 3편 2개, 4편 2개의 `mv-demo`
 
 - [ ] **Step 4: 수정 금지 파일이 그대로인지 확인한다**
 

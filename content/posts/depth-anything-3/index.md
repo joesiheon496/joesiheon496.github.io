@@ -19,10 +19,6 @@ summary = "임의 개수의 이미지에서 (포즈를 알든 모르든) 공간�
 >
 > ⚠️ Figure 1·2는 원논문 그림(출처 명기, 학습용 인용), 부록 도식은 직접 작성.
 
-## 논문 카드 (CELOS 양식)
-
-연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
-
 {{< celos title="[2025] Depth Anything 3 : Recovering the Visual" src="celos-card.png" />}}
 
 ## 한 줄 요약

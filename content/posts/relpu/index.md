@@ -19,10 +19,6 @@ summary = "업샘플링 네트워크는 거의 다 패치 단위로 학습한다
 >
 > ⚠️ Figure 1·3·5는 원논문 그림(출처 명기, 학습용 인용).
 
-## 논문 카드 (CELOS 양식)
-
-연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
-
 {{< celos title="[2025] ReLPU : Representation Learning of" src="celos-card.png" />}}
 
 ## 한 줄 요약

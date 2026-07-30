@@ -18,10 +18,6 @@ summary = "컬러 점군 업샘플링을 2D 이미지 복원 문제로 우회한
 >
 > ⚠️ Figure 2·4·5는 원논문 그림(출처 명기, 학습용 인용).
 
-## 논문 카드 (CELOS 양식)
-
-연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
-
 {{< celos title="[2024] GaussianPU : A Hybrid 2D-3D" src="celos-card.png" />}}
 
 ## 한 줄 요약

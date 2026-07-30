@@ -19,10 +19,6 @@ summary = "점을 어디에 놓을지 좌표로 맞히는 대신, 중점 보간�
 >
 > ⚠️ Figure 1·3·4는 원논문 그림(출처 명기, 학습용 인용).
 
-## 논문 카드 (CELOS 양식)
-
-연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
-
 {{< celos title="[2023] Grad-PU : Arbitrary-Scale Point Cloud" src="celos-card.png" />}}
 
 ## 한 줄 요약

@@ -19,6 +19,43 @@ summary = "임의 개수의 이미지에서 (포즈를 알든 모르든) 공간�
 >
 > ⚠️ Figure 1·2는 원논문 그림(출처 명기, 학습용 인용), 부록 도식은 직접 작성.
 
+## 논문 카드 (CELOS 양식)
+
+{{< celos title="[2025] Depth Anything 3 : Recovering the Visual" >}}
+| | |
+|---|---|
+| **Title** | Depth Anything 3: Recovering the Visual Space from Any Views |
+| **Year / Journal** | 2025 / 저널 없음 — arXiv 프리프린트 ([arXiv:2511.10647](https://arxiv.org/abs/2511.10647), 2025-11) |
+| **Keywords** | 논문정리, depth-anything, 3D-vision, multi-view, pose-estimation |
+| **1st Author** | Haotong Lin (ByteDance Seed) |
+
+**Contributions**
+
+1. **백본은 vanilla transformer로 충분하다** — 사전학습된 DINOv2 ViT를 구조 변경 없이 쓰고, within-view self-attention과 cross-view self-attention을 2:1로 섞어 여러 뷰를 융합한다. VGGT 같은 특수 아키텍처가 필요 없다는 주장.
+2. **depth-ray 단일 예측 타깃** — 픽셀마다 거리 `D`와 카메라 광선 `(t, d)`만 내면 3D 점은 `P = t + D·d`로 결정된다. 포인트맵·포즈를 따로 뽑는 중복을 없앤다.
+3. **teacher-student로 라벨 품질 문제를 우회** — 실세계 depth GT는 노이즈가 많고 불완전하다. 합성 데이터로만 학습한 monocular teacher가 pseudo-label을 만들고, 그것을 실데이터의 희소 GT에 정렬해 쓴다.
+
+**Methods**
+
+- **Dual-DPT Head**: 공유 reassembly로 특징을 처리한 뒤 **depth 가지**와 **ray 가지**로 갈라 출력한다. 중간 특징을 공유해 두 태스크가 서로 돕게 하면서 중복은 피한다(제거 시 4~11% 성능 하락). 출력은 Depth `N×H×W`, Ray `N×½H×½W×6`(원점 3 + 방향 3) → 결합해 Points `N×H×W×3`.
+- **카메라 토큰**: 포즈가 주어지면 인코딩하고, 없으면 학습형 토큰을 쓴다. 그래서 "포즈를 알든 모르든" 동작한다.
+- **teacher 정렬**: teacher의 상대 depth를 **RANSAC 최소제곱**으로 실데이터 GT에 맞춘다 — `D_aligned = ŝ·D̃ + t̂` (스케일·시프트만). 라벨의 디테일·완전성은 올리고 기하 정확도는 유지한다. teacher는 Hypersim·TartanAir·BlendedMVS 등 20개 이상 합성 데이터셋으로 학습.
+
+**Simulation Tool / Verifications**
+
+- **벤치마크**: 단안 depth(KITTI·ETH3D 등 δ₁) · 카메라 포즈(HiRoom·ETH3D·ScanNet++ AUC3) · 멀티뷰 복원
+- **주요 수치**: 카메라 포즈 이전 SOTA VGGT 대비 **+44.3%**, 기하 정확도 **+25.1%** · KITTI δ₁ **95.3**(DA2 94.6 / VGGT 91.7) · ETH3D δ₁ **98.6** · Pose AUC3 HiRoom 49.1 → **80.3**, ScanNet++ 62.6 → **85.0**
+- **효율**: Giant는 VGGT와 크기가 비슷(1.10B vs 1.19B)한데 더 빠르다(37.6 vs 34.1 FPS). 학습은 **H100 128장 × 200k step(≈10일)**
+- **모델·코드**: [ByteDance-Seed/Depth-Anything-3](https://github.com/bytedance-seed/depth-anything-3) · [HF 모델](https://huggingface.co/depth-anything/) · Gradio UI 포함, `da3 auto` / `da3 video` CLI 제공
+
+**etc**
+
+- **라이선스가 갈린다.** Giant·Large·Nested는 **CC BY-NC 4.0(비상업)**, Base·Small·Metric·Mono는 Apache 2.0. 상용 검토 시 후자를 봐야 한다.
+- **모델 변형이 여섯 가지**다 — any-view 기본 시리즈(Small 0.03B / Base 0.11B / Large 0.36B / Giant 1.10B), 단안 metric depth용 DA3Metric-Large, 고품질 단안 상대 depth용 DA3Mono-Large, 실제 스케일 결합인 DA3Nested-Giant-Large. 용도별로 골라야 한다.
+- **"단순함이 곧 일반화"라는 서사**를 수치로 받친 사례다. 복잡한 멀티태스크·특수 헤드를 단일 백본 + 통합 타깃으로 갈아엎고 더 정확해졌다.
+- **내 연구와의 관계**: 로컬 테스터의 백엔드로 이미 쓰고 있다(`da3-small` / `base` / `mono-large`로 비디오 프레임 depth·포인트클라우드 추출).
+{{< /celos >}}
+
 ## 한 줄 요약
 
 **임의 개수의 이미지**(카메라 포즈를 알든 모르든)에서 **공간적으로 일관된 3D 기하**(depth + 카메라)를 한 번에 예측한다. 핵심 주장은 *"특수한 구조 없이 **평범한 DINO ViT 백본 하나**로 충분하고, **depth-ray 단일 표현**이면 복잡한 멀티태스크가 필요 없다"*는 것.

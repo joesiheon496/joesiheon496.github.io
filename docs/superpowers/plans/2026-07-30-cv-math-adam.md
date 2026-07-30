@@ -261,8 +261,12 @@ test('optimizerStep: 모르는 kind 는 던진다', () => {
 });
 
 test('optimizerStep: Adam 첫 스텝의 크기가 축마다 ≈η 다 (편향 보정의 효과)', () => {
-  // 1차·2차 모멘트 모두 t=1 에서 보정되면 m̂/√v̂ = g/|g| 가 되어 보폭이 η 로 정규화된다.
-  // 보정을 끄면 (1-β₁)/√(1-β₂) 배로 작아진다 — 0.1/0.0316 ≈ 3.16 배 차이다.
+  // t=1 에서 두 모멘트를 모두 보정하면 m̂/√v̂ = g/|g| 가 되어 보폭이 η 로 정규화된다.
+  //
+  // ⚠️ 보정을 끄면 첫 스텝이 **커진다**. m 은 (1−β₁)g = 0.1g 로 작아지지만 √v 는
+  // √(1−β₂)|g| = 0.0316|g| 로 **더** 작아져서, 비가 (1−β₁)/√(1−β₂) = 3.162 배로 뜬다.
+  // 실측 확인: η=0.01, g=7 에서 보정 ON 0.0100, OFF 0.0316228.
+  // 편향 보정이 존재하는 이유가 이 과대한 초기 스텝을 잡는 것이다.
   const eta = 0.01;
   const g = [7, -0.03];  // 두 축의 기울기 크기를 크게 다르게 둔다
   const on = optimizerStep('adam', initState(), g, { eta, biasCorrect: true }).step;
@@ -272,10 +276,10 @@ test('optimizerStep: Adam 첫 스텝의 크기가 축마다 ≈η 다 (편향 �
   assert.ok(on[0] > 0 && on[1] < 0);
 
   const off = optimizerStep('adam', initState(), g, { eta, biasCorrect: false }).step;
-  const ratio = Math.abs(on[0]) / Math.abs(off[0]);
-  const expected = Math.sqrt(1 - 0.999) / (1 - 0.9);   // √(1−β₂)/(1−β₁)
-  assert.ok(Math.abs(ratio - 1 / expected) / (1 / expected) < 1e-6, `배율: ${ratio}`);
-  assert.ok(Math.abs(off[0]) < Math.abs(on[0]), '보정을 끄면 첫 스텝이 작아진다');
+  const ratio = Math.abs(off[0]) / Math.abs(on[0]);
+  const expected = (1 - 0.9) / Math.sqrt(1 - 0.999);   // (1−β₁)/√(1−β₂) = 3.162
+  assert.ok(Math.abs(ratio - expected) / expected < 1e-6, `배율: ${ratio} (기대 ${expected})`);
+  assert.ok(Math.abs(off[0]) > Math.abs(on[0]), '보정을 끄면 첫 스텝이 커진다');
 });
 
 test('optimizerStep: rmsprop 과 adam 은 다른 방법이다', () => {
@@ -1370,6 +1374,9 @@ summary = "3편의 모멘텀은 β 를 손으로 정했고 모든 변수에 같�
    `κ(D⁻¹A) = κ(A)` 다. 스펙 §2-5 의 수식을 그대로 쓴다
 6. **해로울 수도 있다** — κ=10, θ=45° 에서 RMSProp 45.8 회 > GD 36.0 회
 7. **Adam** — 모멘텀 + 축별 보폭 + 편향 보정. **평평한 원인은 β₁ 이다.**
+   편향 보정을 설명할 때 방향을 뒤집지 말 것: **보정을 끄면 첫 스텝이 3.162 배 커진다**
+   (`(1−β₁)/√(1−β₂)`). m 이 0.1g 로 작아지는 것보다 √v 가 0.0316|g| 로 더 많이 작아지기
+   때문이다. 보정이 존재하는 이유가 이 과대한 초기 스텝을 잡는 것이다
    스펙 §2-2 의 두 표를 싣는다. β₂ 를 낮춰도 안 되고 모멘텀을 떼면 되는 것이 근거다
 8. **실제 데이터** + `{{< demo name="adamfit" >}}` — 3편의 중심화가 실은 대각화였다.
    **여기서 두 데모의 역할 분담을 한 문장으로 밝힌다** (중심화는 무관항과 κ 를 동시에

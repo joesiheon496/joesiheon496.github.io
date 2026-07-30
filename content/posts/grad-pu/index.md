@@ -21,41 +21,9 @@ summary = "점을 어디에 놓을지 좌표로 맞히는 대신, 중점 보간�
 
 ## 논문 카드 (CELOS 양식)
 
-{{< celos title="[2023] Grad-PU : Arbitrary-Scale Point Cloud" >}}
-| | |
-|---|---|
-| **Title** | Grad-PU: Arbitrary-Scale Point Cloud Upsampling via Gradient Descent with Learned Distance Functions |
-| **Year / Journal** | 2023 / IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) 2023 |
-| **Keywords** | 논문정리, point-cloud, upsampling, CVPR2023, gradient-descent, 3D-vision |
-| **1st Author** | Yun He |
+연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
 
-**Contributions**
-
-1. **점 생성과 위치 정제를 분리** — 중점 보간 + FPS로 좌표 공간에서 점을 먼저 만들어, 배율을 네트워크에서 완전히 떼어냈다. 재학습 없이 임의 배율이 된다.
-2. **예측 대상을 ℝ³ 좌표에서 ℝ¹ 거리로 교체** — 부호 없는 점-대-점 거리를 학습하고 경사하강으로 점을 옮긴다. 같은 네트워크의 출력 채널만 바꾼 절제 실험에서 CD 1.170 → 0.404.
-3. **P2PNet** — P3DConv 기반 특징 추출기 + 거리 회귀기. jitter 주입으로 반복 최적화를 학습에서 값싸게 흉내 낸다(CD 0.520 → 0.404).
-
-**Methods**
-
-- **점 생성**: 각 점과 k-최근접 이웃의 중점 `(p + p_k)/2`를 새 점으로 만들고, FPS로 중복을 걸러 배율 `R`에 맞춘다.
-- **거리 정의**: `F(p)` = 정답 조밀 점군에서 가장 가까운 점까지의 유클리드 거리. 표면 추출이 필요 없어 임의 위상을 다룬다.
-- **정제**: `p_{t+1} = p_t − λ∇F(p_t)`, `T = 10`회. 추론 시 추출된 특징은 고정하고 반복마다 **특징 보간만** 다시 한다(네트워크 forward 재실행 없음).
-- **학습**: 반복이 없다. 보간점에 `N(0, 0.02²)` 가우시안 노이즈를 주입해 질의점을 만들고, 예측 거리와 실제 거리의 **L1**으로 학습. 60 epoch, batch 32, Adam lr 1e-3(20 epoch마다 ×0.5), 특징 차원 32, 이웃 16.
-
-**Simulation Tool / Verifications**
-
-- **데이터셋**: PU-GAN(입력 2,048점) 4×·16× · PU1K 4× · 임의 배율 2/3/5/6/7×(재학습 없음) · 노이즈 τ=0.02
-- **하류 과제**: ModelNet40 분류(CurveNet) 256점 68.76% → 업샘플 후 **91.96%**(고해상도 원본 93.72%) · BallPivoting 표면 복원 CD 0.071
-- **주요 수치**: PU-GAN 4× CD **0.245** / HD **2.369**, 16× CD **0.108**(2위 대비 −29%) · PU1K 4× CD **0.404** · 파라미터 **67.1 KB**, 추론 0.384s, NVIDIA TITAN X
-- **코드**: [yunhe20/Grad-PU](https://github.com/yunhe20/Grad-PU) (`Chamfer3D`·`pointops` 빌드 필요, 사전학습 모델 포함)
-
-**etc**
-
-- **모델 크기가 곧 저비용은 아니다.** kNN 탐색 같은 비싼 연산이 네트워크 바깥에 있어 67 KB라는 숫자와 실제 연산량이 비례하지 않는다. 반복 `T`회의 특징 보간 비용이 따로 든다.
-- **표면 복원 개선 폭은 논문도 "marginal"이라고 인정한다** — 저해상도 입력 CD 0.106 대 업샘플 후 0.071.
-- **패치 단위 처리라 블록 경계가 드러난다**는 약점이 GaussianPU에서 지적된다. 이 논문 자체에서는 다루지 않는다.
-- **절제 실험의 설계가 특히 좋다.** "ℝ³보다 ℝ¹이 쉽다"는 출발 가설을 출력 채널만 바꾼 대조로 직접 검증한다. 인용할 때 이 표가 가장 쓸모 있다.
-{{< /celos >}}
+{{< celos title="[2023] Grad-PU : Arbitrary-Scale Point Cloud" src="celos-card.png" />}}
 
 ## 한 줄 요약
 

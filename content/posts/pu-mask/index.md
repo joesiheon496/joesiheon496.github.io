@@ -24,46 +24,9 @@ summary = "희소 점군은 원래 조밀했던 점군을 가상 마스크로 �
 
 ## 논문 카드 (CELOS 양식)
 
-{{< celos title="[2024] PU-Mask : 3D Point Cloud" >}}
-| | |
-|---|---|
-| **Title** | PU-Mask: 3D Point Cloud Upsampling via an Implicit Virtual Mask |
-| **Year / Journal** | 2024 / IEEE Transactions on Circuits and Systems for Video Technology, vol. 34, no. 7, pp. 6489–6502 ([doi:10.1109/TCSVT.2024.3370001](https://doi.org/10.1109/TCSVT.2024.3370001)) |
-| **Keywords** | 논문정리, point-cloud, upsampling, transformer, attention, graph-laplacian, TCSVT |
-| **1st Author** | Hao Liu |
+연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
 
-**Contributions**
-
-1. **관점 전환** — 희소 점군을 "조밀했던 점군을 가상 마스크로 국소적으로 가린 결과"로 가정한다. 그러면 업샘플링이 **무제약 생성이 아니라 국소 채우기**가 되고, 마스크 자체가 "여기에 이만큼 채워라"는 제약이 된다.
-2. **MTAA — 마스크 유도 비대칭 트랜스포머 오토인코더** — 인코더 1개 : 디코더 3개로 복원 쪽에 용량을 몰아주고, **마스크는 디코더에만** 넣는다. 채널 연결을 무시하는 표준 트랜스포머의 약점을 CA-Former(V 벡터에만 경량 채널 어텐션)로 보완.
-3. **세 개의 부품** — SUA(SE-Net을 2차 응답까지 확장), VMP(같은 마스크에서 나온 형제 점들이 서로를 참조하게 하는 풀링), PLO(학습 가능한 의사 라플라시안 기하 보정).
-
-**Methods**
-
-- **가상 마스크 생성(VMG)**: 마스크의 **위치**는 각 점 자신, **형태**는 이웃과의 엣지 관계 `Ẽ_i,j = P_i − P_i,j`로 추정한다. 2층 MLP를 거쳐 max pooling 전역 벡터를 concat → `M ∈ ℝ^(N×C₁)`. **명시적 이진 마스크가 아니라 "이 점 주변이 어떻게 비어 있는가"를 인코딩한 특징 벡터**다(제목의 *implicit*).
-- **MTAA**: `F`와 `M`에 고정 위치 임베딩 2D 그리드를 붙여 구별시킨 뒤, **점별 특징을 ViT의 패치 하나로 보고** 트랜스포머에 바로 넣는다. 디코더는 `concat(F̃, M̂)`을 받아 업샘플 분포를 추정.
-- **SUA**: `mean = GAP(x)`(DC 계수) → `res = x − mean`(전역 잔차) → `GMP(MLP(res))`(AC 계수) → `mean + res` → sigmoid 채널 가중. "SE-Net은 DC 계수만 쓰는 압축기"라는 재해석에서 나온 구조.
-- **PLO**: 선형 필터를 정규화하면 `P′_i = P_i + Σ w_i,j (P_i,j − P_i)` 즉 이산 라플라시안이 된다. 이 뒷항을 `A({M(P_i, P_i,j) − T(P_i)})`로 **비선형 학습**한다(M=2 MLP+residual, T=2 MLP, A=max pooling).
-- **개수 맞추기**: `(r+2)`배로 먼저 만들고 FPS로 솎아낸다(코드의 `--more_up 2`).
-- **손실**: `L = 8500·L_CD + 1·L_uniform`. **판별자·적대적 손실은 없다**(저장소에 `discriminator.py`가 있지만 최적화 대상에 GAN 항이 없다).
-
-**Simulation Tool / Verifications**
-
-- **데이터셋**: **PU-147**(120 학습 / 27 테스트, 총 24,000 패치) · 미학습 일반화로 PU1K(127개)·ModelNet40·KITTI
-- **설정**: 입력 2,048점(Monte Carlo) → 정답 8,192점(Poisson disk), r=4, Adam 120 epoch, batch 28, lr 0.001, **Tesla V100** 1장, TensorFlow
-- **지표 5개**: CD·HD·P2F + **HF_CD·HF_HD**(엣지·코너 등 고주파 영역)
-- **주요 수치**: PU-147 CD **0.252** / HD **3.462** / P2F **2.167**(직전 SOTA PUFA-GAN 0.258 / 3.571 / 2.392) · PU1K CD **0.425** · FLOPs 11.9G / 학습 22h / 추론 0.88s
-- **코드**: [liuhaoyun/PU-Mask](https://github.com/liuhaoyun/PU-Mask) (TensorFlow. TF 1.11 + Python 3.6 + 직접 컴파일 CUDA 연산자라 재현이 고통스럽다. 다만 저장소에 테스트 입출력이 들어 있어 모델을 돌리지 않고도 결과물을 볼 수 있다.)
-
-**etc**
-
-- **저자 주장과 표가 어긋난다.** 결론은 "all objective metrics에서 SOTA를 상회"라고 쓰지만 **HF_HD는 Table I에서 2위, Table III에서 3위**다. 본문은 이를 정직하게 서술하고 이유(고주파 영역의 복잡한 기하가 마스크의 예측을 해쳐 아웃라이어 발생)까지 설명하는데 결론만 과하게 나갔다.
-- **절제 실험이 프레이밍의 무게를 덜어낸다.** 핵심 아이디어인 가상 마스크를 빼도 CD 0.267로 PUFA-GAN(0.258)과 경쟁권이다. **수치를 밀어 올린 주역은 마스크가 아니라 CA-Former/MTAA**(제거 시 CD +12.7%)라고 읽는 게 정확하다. 논문의 서사와 기여의 분해를 따로 읽어야 한다.
-- **재현 시 정해야 할 불일치 넷**: ① 표마다 HD가 다르다(3.462 vs 3.469) ② 논문 `w_u = 1` vs 코드 `uniform_w = 10` ③ PLO의 `A(·)`를 본문은 "sum", 구현·코드는 max-pooling ④ VMG 식 (2)는 절대좌표 `P_i`를 포함하지만 코드는 상대좌표만 이어 붙인다.
-- **조밀 점군에는 쓸 수 없다.** 8iVFB *Longdress*에서 PU-Dense 대비 품질은 5.5 dB 앞서지만 추론이 **547배 느리다**(1,356초 vs 2.48초). 패치 수가 폭발하기 때문. 논문이 이 숫자를 정직하게 보고한 건 좋다.
-- **배율 4만 학습했다.** 임의 배율은 향후 과제로 명시되어 있고, Grad-PU가 정확히 그 지점을 푼 방법이다.
-- **이식성 있는 부품 둘**: SUA(잔차 → 변환 → GMP)는 어느 채널 어텐션에든 붙일 수 있고, PLO 구조는 점군 디노이징·정합 후처리에 그대로 옮길 수 있다.
-{{< /celos >}}
+{{< celos title="[2024] PU-Mask : 3D Point Cloud" src="celos-card.png" />}}
 
 ## 한 줄 요약
 

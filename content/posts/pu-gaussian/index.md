@@ -21,39 +21,9 @@ summary = "점 주변 국소 이웃을 이방성 3D 가우시안으로 모델링
 
 ## 논문 카드 (CELOS 양식)
 
-{{< celos title="[2025] PU-Gaussian : Point Cloud Upsampling" >}}
-| | |
-|---|---|
-| **Title** | PU-Gaussian: Point Cloud Upsampling using 3D Gaussian Representation |
-| **Year / Journal** | 2025 / 저널 없음 — ICCV 2025 e2e3D Workshop 논문 ([arXiv:2509.20207](https://arxiv.org/abs/2509.20207)) |
-| **Keywords** | 논문정리, point-cloud, upsampling, 3D-gaussian, 3D-vision |
-| **1st Author** | Mahmoud Khater |
+연구실 보고 양식(CELOS)으로 정리한 슬라이드다. 제목줄을 눌러 펴고, 이미지를 누르면 원본 크기로 열린다.
 
-**Contributions**
-
-1. **각 점의 국소 이웃을 이방성 3D 가우시안 `𝒩(μ, Σ)`으로 모델링** — 3D Gaussian Splatting과 같은 `Σ = RSSᵀRᵀ` 분해를 렌더링이 아니라 업샘플링에 가져왔다.
-2. **암시적 특징 대신 기하 도메인에서 직접 샘플링** — 가우시안에서 점을 뽑으므로 "어디에 왜 점이 생기는지"가 눈에 보인다(해석성).
-3. **2단계 구조** — Gaussian Network로 coarse를 만들고 Refinement Network가 잔차 오프셋으로 정제(추론 시 2회 반복).
-
-**Methods**
-
-- **Stage 1**: Point Transformer로 특징을 뽑고 3개 head로 **스케일 `S`**(softmax) · **회전 `R`**(quaternion) · **오프셋 `Δ`** 를 예측. 평균은 `μ = Δ + P_in`. 각 가우시안에서 reparameterization trick(`μ + Σ ⊙ ε`)으로 `r`개를 샘플하고, **2σ를 벗어난 샘플은 버려** 형상을 제어한다.
-- **Stage 2**: coarse 점을 특징공간에 투영·결합해 Point Transformer에 넣고 **잔차 오프셋**을 예측, `P_up = P_coarse + Δ`.
-- **손실**: 가우시안 정규화 항 `(1/N)Σ (x_i − μ_i)ᵀ Σ_i (x_i − μ_i)`(예측 타원체가 실제 점을 감싸게 조인다) + 정답 점군과의 **Chamfer 거리**.
-
-**Simulation Tool / Verifications**
-
-- **데이터셋**: PU-GAN 4×·16× · PU1K 4× · 노이즈 τ=0.01 · **희소 입력 256~1,024점** · 실측(KITTI, Fraunhofer IPM 건물 스캔)
-- **주요 수치**: PU-GAN 4× CD **0.228** · 16× CD **0.079** / HD **1.443** · PU1K 4× CD **0.323** / HD **2.593** · 희소 입력 composite CD **0.8803**(RepKPU 0.915, PU-CRN 1.205)
-- **코드**: [mvg-inatech/PU-Gaussian](https://github.com/mvg-inatech/PU-Gaussian) (MIT, 사전학습 모델·`infer.py` 포함)
-
-**etc**
-
-- **전 지표 SOTA는 아니다.** PU-GAN 4×에서 **P2F(1.660)와 HD(1.710)는 APU-LDI(1.338 / 1.679)가 앞선다.** CD·HD 우위와 표면 밀착도 우위가 갈리므로, 인용할 때 어느 지표를 근거로 쓰는지 밝혀야 한다.
-- **노이즈(τ=0.01)에서는 APU-LDI 다음 2위**다. 다만 single-pass 방법들은 모두 상회한다.
-- **워크숍 논문**이다(ICCV 2025 e2e3D). 본지 논문과 같은 무게로 인용하지 않는 게 안전하다.
-- **내 연구와의 관계**: 희소 LiDAR 점군 조밀화 후처리 후보. MIT 라이선스에 사전학습 모델이 있어 바로 돌려볼 수 있다.
-{{< /celos >}}
+{{< celos title="[2025] PU-Gaussian : Point Cloud Upsampling" src="celos-card.png" />}}
 
 ## 한 줄 요약
 

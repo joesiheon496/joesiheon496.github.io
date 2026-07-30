@@ -152,3 +152,86 @@ export function optPath({ kind, A, start, steps, eta, ...opts }) {
   }
   return out;
 }
+
+/**
+ * 반복수를 재는 기준 시작점 다섯 개.
+ *
+ * ⚠️ |x| = |y| 인 점을 넣지 말 것. θ=45° 에서 그 점이 정확히 A 의 고유벡터가 되어
+ * 최적 η 하나로 원점에 착지하고, 다섯 방법의 반복수가 모두 1 로 나온다. 스펙 §3-1
+ */
+export const DEFAULT_STARTS = [
+  [2.5, 0.7], [1.8, -1.2], [0.4, 2.2], [-2.1, 1.5], [-0.9, -2.4],
+];
+
+/**
+ * 데모 2(OLS)의 고정 학습률. 스펙 §2-3b 에서 실측한 값이다.
+ *
+ * ⚠️ 데모 1 과 공유하지 않는다. 회전 이차함수의 RMSProp 최적 η 는 2.51 인데 OLS 에서는
+ * 0.05 로 **50배** 다르다. 한 상수를 양쪽에 쓰면 한쪽이 반드시 망가진다.
+ * ⚠️ Adam 에 0.1 을 쓰지 말 것. 치우침 배치에서 중심화 OFF 72 회가 ON 120 회보다 빨라져
+ * 글이 주장하는 것과 반대되는 표가 화면에 뜬다. 0.05 에서는 179 → 121 로 정상이다.
+ *
+ * GD·모멘텀은 최적값 2/(λ_min+λ_max) 를 자동 계산하므로 여기 없다.
+ */
+export const OLS_ETA = {
+  rmsprop: 0.05,
+  adam: 0.05,
+};
+
+/** 한 시작점에서 목표에 도달하는 반복수. 미도달이면 maxIters. */
+export function stepsToTolOne({ kind, A, start, eta, tol = 1e-3, maxIters = 4000, ...opts }) {
+  let p = [start[0], start[1]];
+  const d0 = Math.hypot(p[0], p[1]);
+  let st = initState();
+  for (let t = 1; t <= maxIters; t++) {
+    const g = quadGradA(A, p);
+    if (!Number.isFinite(g[0]) || !Number.isFinite(g[1])) return maxIters;
+    const r = optimizerStep(kind, st, g, { eta, ...opts });
+    st = r.state;
+    p = [p[0] - r.step[0], p[1] - r.step[1]];
+    if (!Number.isFinite(p[0]) || !Number.isFinite(p[1])) return maxIters;
+    if (Math.hypot(p[0], p[1]) <= tol * d0) return t;
+  }
+  return maxIters;
+}
+
+/**
+ * 시작점들의 평균 반복수.
+ *
+ * 미도달을 null 로 돌려주지 않는 이유: bestEta 가 η 를 고를 때 "미도달한 η 들" 사이의
+ * 우열을 가릴 수 없게 되어 탐색이 성립하지 않는다. maxIters 로 세어 평균에 넣고,
+ * 도달 여부는 reached 로 따로 알린다. 데모는 reached 가 false 면 `미도달` 을 표시한다.
+ */
+export function stepsToTol({
+  kind, A, starts = DEFAULT_STARTS, eta, tol = 1e-3, maxIters = 4000, ...opts
+}) {
+  let sum = 0;
+  let reached = true;
+  for (const s of starts) {
+    const n = stepsToTolOne({ kind, A, start: s, eta, tol, maxIters, ...opts });
+    if (n >= maxIters) reached = false;
+    sum += n;
+  }
+  return { iters: sum / starts.length, reached };
+}
+
+/**
+ * 시작점들의 **평균** 반복수를 최소화하는 η.
+ *
+ * ⚠️ 시작점마다 따로 고르면 "그 점에 정확히 착지하는 η" 를 찾아내 반복수가 인공적으로
+ * 1 이 된다 (§3-1 과 같은 뿌리). 반드시 평균에 대해 고른다.
+ *
+ * 그리드 기본값은 스펙 §2 의 측정과 같다. 바꾸면 §2 의 표와 테스트 기대값이 함께 흔들린다.
+ */
+export function bestEta({
+  kind, A, starts = DEFAULT_STARTS, tol = 1e-3, maxIters = 4000,
+  kMin = -6, kMax = 1, kStep = 0.08, ...opts
+}) {
+  let best = { eta: Math.pow(10, kMin), iters: Infinity, reached: false };
+  for (let k = kMin; k <= kMax + 1e-12; k += kStep) {
+    const eta = Math.pow(10, k);
+    const r = stepsToTol({ kind, A, starts, eta, tol, maxIters, ...opts });
+    if (r.iters < best.iters) best = { eta, iters: r.iters, reached: r.reached };
+  }
+  return best;
+}

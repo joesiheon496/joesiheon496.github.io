@@ -1,21 +1,51 @@
 {{/*
   celos shortcode — CELOS 양식 논문 카드를 접이식(<details>)으로 넣는다.
-  사용법:
-    {{< celos title="[2025] PUFM++ : Point Cloud Upsampling" >}}
-    (여기에 마크다운 — 8칸 표와 Contributions/Methods/etc)
-    {{< /celos >}}
+
+  두 가지 모드가 있다.
+
+  1) 이미지 모드 — PowerPoint 에서 내보낸 슬라이드 PNG 를 그대로 보여준다.
+     {{< celos title="[2025] PUFM++ : Point Cloud Upsampling" src="celos-card.png" >}}
+     - src: 같은 page bundle 폴더의 이미지 파일명. 1600px 로 축소 + WebP 변환.
+     - 원본을 새 탭으로 열 수 있게 감싸므로, 모바일에서 확대해 읽을 수 있다.
+     - 닫는 태그 없이 단독으로 쓴다.
+
+  2) 텍스트 모드 — 8칸을 마크다운 표·목록으로 쓴다. 본문 검색·복사·다크모드가 된다.
+     {{< celos title="..." >}} (마크다운) {{< /celos >}}
+
+  공통:
   - title: 접힌 상태에서 보이는 유일한 줄. PPTX 슬라이드 제목과 같은 문자열을 쓴다.
   - open="true": 처음부터 펴진 상태로 렌더 (기본은 접힘)
-  - 본문을 raw <details> 로 쓰지 않는 이유: goldmark unsafe 가 꺼져 있어 마크다운 안의 HTML 은 버려진다.
+  - raw <details> 를 본문에 쓰지 않는 이유: goldmark unsafe 가 꺼져 있어 마크다운 안의 HTML 은 버려진다.
 */}}
 {{- $title := .Get "title" -}}
 {{- if not $title -}}
   {{- errorf "celos shortcode: title 파라미터가 필요함 (%s)" .Position -}}
 {{- end -}}
+{{- $src := .Get "src" -}}
 <link rel="stylesheet" href="{{ "css/celos.css" | relURL }}">
 <details class="celos-card"{{ if eq (.Get "open") "true" }} open{{ end }}>
 <summary>{{ $title }}</summary>
-<div class="celos-body">
+<div class="celos-body{{ if $src }} celos-body-img{{ end }}">
+{{- if $src -}}
+  {{- $res := .Page.Resources.GetMatch $src -}}
+  {{- if not $res -}}
+    {{- errorf "celos shortcode: 이미지를 찾을 수 없음 %q — 글 폴더에 넣었는지 확인 (%s)" $src .Position -}}
+  {{- end -}}
+  {{- $maxW := 1600 -}}
+  {{- $img := $res -}}
+  {{- if gt $res.Width $maxW -}}
+    {{- $img = $res.Resize (printf "%dx webp q88" $maxW) -}}
+  {{- else -}}
+    {{- $img = $res.Resize (printf "%dx webp q88" $res.Width) -}}
+  {{- end -}}
+  <a href="{{ $res.RelPermalink }}" target="_blank" rel="noopener" title="원본 크기로 열기">
+    <img src="{{ $img.RelPermalink }}" width="{{ $img.Width }}" height="{{ $img.Height }}"
+         alt="{{ with .Get "alt" }}{{ . }}{{ else }}{{ $title }} — CELOS 양식 논문 카드 슬라이드{{ end }}"
+         loading="lazy" decoding="async">
+  </a>
+  {{- with .Inner }}<p class="celos-caption">{{ . | markdownify }}</p>{{ end -}}
+{{- else -}}
 {{ .Inner | markdownify }}
+{{- end -}}
 </div>
 </details>

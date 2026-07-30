@@ -49,3 +49,22 @@
   display: block;
   margin-top: 1.2rem;
 }
+
+/* 이미지 모드 — PowerPoint 슬라이드 PNG. 슬라이드는 흰 배경이라 다크모드에서
+   그대로 뜨면 눈이 부시므로, 테두리를 줘서 문서 배경과 경계를 만든다. */
+.celos-body-img {
+  padding: 1rem;
+}
+.celos-body-img img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+.celos-caption {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--secondary);
+}

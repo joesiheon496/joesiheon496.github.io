@@ -26,7 +26,8 @@
 - Hugo 빌드에는 `go` 가 PATH 에 필요하다: `export PATH="$PATH:/c/Program Files/Go/bin"`
 - 테스트는 **인자 없이** `node --test` 로 돌린다. `node --test tests/` 는 Node 24 에서
   디렉토리를 모듈로 해석해 실패한다. `npm test` 가 이미 그렇게 설정돼 있다.
-- 테스트 기준선은 **48개**다. 이 계획이 끝나면 **72개**가 된다 (신규 `test()` 블록 24개).
+- 테스트 기준선은 **48개**다. 이 계획이 끝나면 **73개**가 된다 (신규 `test()` 블록 25개 —
+  Task 2 의 fix round 에서 `optPath` 발산 테스트가 하나 늘었다).
   스펙 §8 이 말한 "10개" 는 **검증 항목 수**이고 `test()` 블록 수가 아니다. 개수를 58 로
   맞추려고 테스트를 합치지 말 것 — 항목 하나에 여러 단정이 들어가면 실패 지점을 못 찾는다.
 - 수치 허용오차는 기본 **1e-9**. 예외는 두 곳이며 이유가 있다:
@@ -443,7 +444,7 @@ export function optPath({ kind, A, start, steps, eta, ...opts }) {
 - [ ] **Step 4: 통과를 확인한다**
 
 Run: `npm test 2>&1 | tail -12`
-Expected: PASS, `tests 61` (48 + 5 + 8)
+Expected: PASS, `tests 61` (48 + 5 + 8). fix round 에서 발산 테스트가 추가되어 최종 62 가 된다
 
 - [ ] **Step 5: 커밋**
 
@@ -664,7 +665,7 @@ export function bestEta({
 - [ ] **Step 4: 통과를 확인한다**
 
 Run: `npm test 2>&1 | tail -12`
-Expected: PASS, `tests 68` (48 + 5 + 8 + 7)
+Expected: PASS, `tests 69` (48 + 5 + 9 + 7 — Task 2 의 fix round 에서 발산 테스트가 하나 늘었다)
 
 느리면(수 초) 정상이다. `bestEta` 가 88 개 그리드 × 5 시작점 × 최대 4000 스텝을 돈다.
 
@@ -813,7 +814,7 @@ export function olsOptPath({ points, steps, kind = 'gd', center = false, eta, ..
 - [ ] **Step 4: 통과를 확인한다**
 
 Run: `npm test 2>&1 | tail -12`
-Expected: PASS, `tests 72` (48 + 5 + 8 + 7 + 4)
+Expected: PASS, `tests 73` (48 + 5 + 9 + 7 + 4)
 
 - [ ] **Step 5: 커밋**
 
@@ -915,7 +916,7 @@ export function makeRadios(el, def, onInput) {
 - [ ] **Step 2: 기존 테스트가 깨지지 않았는지 확인한다**
 
 Run: `npm test 2>&1 | tail -8`
-Expected: PASS, `tests 72` (변동 없음 — `core.js` 는 Node 테스트 대상이 아니다)
+Expected: PASS, `tests 73` (변동 없음 — `core.js` 는 Node 테스트 대상이 아니다)
 
 - [ ] **Step 3: 1·2·3편 데모가 여전히 동작하는지 확인한다**
 
@@ -1449,11 +1450,11 @@ Expected: 출력 없음
 cd /d/projects/joesiheon496.github.io
 npm test 2>&1 | tail -8
 ```
-Expected: `tests 58`, `pass 58`, `fail 0`
+Expected: `tests 73`, `pass 73`, `fail 0`
 
-> ⚠️ Task 1~4 의 개수 합이 5+8+7+4 = 24 라 48+24 = 72 가 된다. 스펙이 말한 "10개" 는
+> ⚠️ Task 1~4 의 개수 합이 5+9+7+4 = 25 라 48+25 = 73 이 된다. 스펙이 말한 "10개" 는
 > **스펙 §6 이 나열한 검증 항목 10개**이고, 실제 `test()` 블록은 그보다 많다.
-> **58 이 아니라 72 가 나오면 그것이 정상이다.** 개수를 58 로 맞추려고 테스트를 합치지 말 것 —
+> **58 이 아니라 73 이 나오면 그것이 정상이다.** 개수를 58 로 맞추려고 테스트를 합치지 말 것 —
 > 항목 하나에 여러 단정이 들어가면 실패했을 때 어디가 깨졌는지 알 수 없다.
 > 확인할 것은 `fail 0` 과 **기준선 48 개가 그대로 통과하는 것**이다.
 

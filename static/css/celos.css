@@ -1,0 +1,51 @@
+/* CELOS 양식 논문 카드 (접이식). 색은 PaperMod 변수를 그대로 써서 light/dark 자동 대응. */
+
+.celos-card {
+  margin: 1.5rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--entry);
+}
+
+.celos-card > summary {
+  cursor: pointer;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  color: var(--primary);
+  list-style: none;
+}
+
+/* 기본 삼각형을 지우고 직접 그린다 (브라우저마다 위치가 달라서) */
+.celos-card > summary::-webkit-details-marker { display: none; }
+.celos-card > summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1.1em;
+  color: var(--secondary);
+  transition: transform 0.15s ease;
+}
+.celos-card[open] > summary::before { transform: rotate(90deg); }
+
+.celos-body {
+  padding: 0 1rem 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+/* 8칸 표: 칸 이름 열은 줄바꿈 없이, 값 열이 남는 폭을 쓴다 */
+.celos-body table {
+  margin: 1rem 0;
+  table-layout: auto;
+}
+.celos-body table td:first-child {
+  white-space: nowrap;
+  vertical-align: top;
+  color: var(--secondary);
+}
+
+/* 표에 헤더 행이 없으므로 (양식이 칸 이름/값 쌍이라) 빈 thead 를 숨긴다 */
+.celos-body table thead { display: none; }
+
+.celos-body p > strong:only-child {
+  display: block;
+  margin-top: 1.2rem;
+}

@@ -19,6 +19,46 @@ summary = "희소 점군을 조밀한 점군으로 복원하는 PUFM++ 논문(ar
 >
 > ⚠️ 이 글의 그림은 저작권 문제를 피하려고 논문 figure를 그대로 쓰지 않고, **보고된 수치와 개념을 직접 도식/차트로 재구성**한 것입니다.
 
+## 논문 카드 (CELOS 양식)
+
+연구실 보고 양식(`CELOS양식_only_abstract.pptx`)의 8칸을 그대로 옮긴 카드다. 제목줄을 눌러 펴고, 다 보면 다시 접으면 된다. 칸 이름과 순서는 PPTX와 글자까지 같게 두었으니 슬라이드 한 장에 그대로 옮겨 붙일 수 있다.
+
+{{< celos title="[2025] PUFM++ : Point Cloud Upsampling" >}}
+| | |
+|---|---|
+| **Title** | PUFM++: Point Cloud Upsampling via Enhanced Flow Matching |
+| **Year / Journal** | 2025 / 저널 없음 — arXiv 프리프린트 ([arXiv:2512.20988](https://arxiv.org/abs/2512.20988), 2025-12-24 제출) |
+| **Keywords** | *(프리프린트가 자체 키워드 목록을 붙이지 않았다. arXiv 분류: Computer Vision and Pattern Recognition (cs.CV))* |
+| **1st Author** | Zhi-Song Liu |
+
+**Contributions**
+
+1. **2단계 Flow Matching** — EMD(auction) 사전 정렬로 희소↔조밀 대응을 먼저 잡아 학습 경로를 곧게 만들고(Stage 1), 실제로 적분해 얻은 종점과 목표의 Chamfer Distance를 최소화해 분포를 직접 맞춘다(Stage 2).
+2. **Adaptive Time Scheduler** — 타임스텝별 학습 손실로 "어려움 밀도"를 만들고 그 CDF를 역변환 샘플링해, 같은 스텝 예산을 어려운 구간에 몰아준다.
+3. **추론 쪽 개선 둘** — RIN latent로 스텝 사이 전역 구조를 이어가고, test-time에 곡률 가중·역투영으로 점을 실제 표면에 밀착시킨다.
+
+**Methods**
+
+- **패치 단위 학습**: 조밀 1024pts / 희소 256pts. Stage 1은 EMD로 대응 `φ*`를 배정한 뒤 속도장에 MSE. Stage 2는 소스에서 ODE를 실제로 적분해 얻은 `x̃1`과 `x1`의 CD를 최소화하고, 입력에 `ξ~N(0,σ²)`를 더해 국소 이웃 수송을 매끄럽게 정규화한다.
+- **ATS**: 학습이 끝난 모델을 고정해 타임스텝별 MSE를 다시 수집 → `ω(t)=(L_mse(t)+ψ)^β`의 CDF 역변환 샘플링으로 스텝 위치를 정한다.
+- **구조(RIN)**: latent token을 유지하며 속도와 함께 갱신(`[v, z_{t+1}] = v_θ(x_t, z_t, t)`). Read→Compute→Write 3단 어텐션. 학습 시엔 과거 `z`가 없으므로 null 초기화로 proxy latent를 뽑아(stop-grad) 자기 출력을 조건으로 쓰는 2-pass 학습.
+- **test-time 제약**: k-NN 공분산 고윳값으로 `κ=λ1/(λ1+λ2+λ3)`를 구해 `w=1+α·κ`로 가중, 적분 후 `‖x_kNN − x̃0‖²`를 작은 lr로 경사하강(역투영).
+
+**Simulation Tool / Verifications**
+
+- **데이터셋**: PU1K(학습) · PU-GAN 27개/PU1K 127개(평가) · KITTI(LiDAR 3D 검출) · ScanNet(RGB-D)
+- **메트릭**: CD·HD·P2F·JSD(낮을수록) / NC·ALR·MR(메시 품질, 높을수록)
+- **주요 수치**: PU-GAN 4× CD **0.980** (전작 PUFM 1.049, [Grad-PU]({{< ref "/posts/grad-pu" >}}) 1.132) · PU1K 16× CD 0.220→**0.176** · KITTI Car AP@0.7 sparse 20.35→**23.86**
+- **코드**: 전작 PUFM 공식 구현 [Holmes-Alan/PUFM](https://github.com/Holmes-Alan/PUFM) (python 3.9 / torch 1.13, `pointops`·`Chamfer3D`·`emd_assignment` 확장 빌드 필요). **PUFM++ 전용 코드는 공개 여부 확인 안 됨.**
+
+**etc**
+
+- **한계**: EMD가 O(n²)이고 RIN 2-pass 때문에 학습 비용이 크다. 모델 115M(전작 30M). ATS는 학습 후 손실을 재수집해야 CDF가 나와 배포 절차가 번거롭다. 합성·정제 데이터 편향도 남는다.
+- **저자 예고**: 1-step distillation, 업샘플링–완성(completion) 결합.
+- **양식 관련 메모 둘**: ① 원제에 `PUFM++:` 약어 접두가 붙어 있어, 제목줄은 접두 뒤 세 단어를 썼다. ② 논문은 개선을 **네 가지**로 제시하는데, 3칸 양식에 맞추려고 추론 쪽 둘(RIN·manifold 제약)을 3번으로 묶었다. 원래 구분은 본문 "PUFM++의 4가지 개선"에 그대로 있다.
+- **내 연구와의 관계**: depth back-projection으로 얻은 희소 점군을 조밀화하는 후처리 후보.
+{{< /celos >}}
+
 ## 한 줄 요약
 
 LiDAR·깊이카메라로 얻은 **희소하고 노이즈 많은 점군**을 **조밀하고 균일한 점군**으로 복원(업샘플링)하는 문제를, 노이즈→점군이 아니라 **희소 점군 → 조밀 점군을 직접 잇는 Flow Matching**으로 풀어, diffusion(20~50스텝) 대비 **6스텝 수준**으로 SOTA 품질을 낸다.

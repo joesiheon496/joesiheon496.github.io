@@ -1,0 +1,21 @@
+{{/*
+  celos shortcode — CELOS 양식 논문 카드를 접이식(<details>)으로 넣는다.
+  사용법:
+    {{< celos title="[2025] PUFM++ : Point Cloud Upsampling" >}}
+    (여기에 마크다운 — 8칸 표와 Contributions/Methods/etc)
+    {{< /celos >}}
+  - title: 접힌 상태에서 보이는 유일한 줄. PPTX 슬라이드 제목과 같은 문자열을 쓴다.
+  - open="true": 처음부터 펴진 상태로 렌더 (기본은 접힘)
+  - 본문을 raw <details> 로 쓰지 않는 이유: goldmark unsafe 가 꺼져 있어 마크다운 안의 HTML 은 버려진다.
+*/}}
+{{- $title := .Get "title" -}}
+{{- if not $title -}}
+  {{- errorf "celos shortcode: title 파라미터가 필요함 (%s)" .Position -}}
+{{- end -}}
+<link rel="stylesheet" href="{{ "css/celos.css" | relURL }}">
+<details class="celos-card"{{ if eq (.Get "open") "true" }} open{{ end }}>
+<summary>{{ $title }}</summary>
+<div class="celos-body">
+{{ .Inner | markdownify }}
+</div>
+</details>

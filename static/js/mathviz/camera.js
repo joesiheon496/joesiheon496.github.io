@@ -70,4 +70,6 @@ export function lookAt({ eye, target, up }) {
  *
  * ⚠️ t 는 카메라 위치가 **아니다.** eye=(0,-6,1.6) 일 때 t=(0,0.793,6.159) 다.
  */
-export const cameraCenter = ({ R, t }) => scale(matVec(transpose(R), t), -1);
+export function cameraCenter({ R, t }) {
+  return scale(matVec(transpose(R), t), -1);
+}

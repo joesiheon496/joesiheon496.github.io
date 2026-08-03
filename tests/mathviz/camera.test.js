@@ -45,6 +45,16 @@ test('rotX / rotY / rotZ 는 회전이다 — 정규직교이고 det = +1', () =
       close(det3(R), 1, TOL, `det (a=${a})`);
     }
   }
+  // 위 검사만으로는 rotX = () => I3 같은 스텁도 통과한다 (항등행렬도 정규직교이고
+  // det = 1). 각 축의 회전 "방향"을 기저벡터로 못 박는다 — 오른손 규칙:
+  // rotX(90°): y → z, rotY(90°): z → x, rotZ(90°): x → y.
+  closeVec(matVec(rotZ(Math.PI / 2), [1, 0, 0]), [0, 1, 0], TOL, 'rotZ(90°): x→y');
+  closeVec(matVec(rotX(Math.PI / 2), [0, 1, 0]), [0, 0, 1], TOL, 'rotX(90°): y→z');
+  closeVec(matVec(rotY(Math.PI / 2), [0, 0, 1]), [1, 0, 0], TOL, 'rotY(90°): z→x');
+  // 90도 배수만으로는 R(-a) 부호 오류를 못 잡는다 (예: 180° 근방 대칭). 임의각으로
+  // 비대각 성분의 부호가 뒤집힘을 확인한다.
+  close(rotX(0.3)[1][2], -Math.sin(0.3), TOL, 'rotX(0.3)[1][2] 부호');
+  close(rotX(-0.3)[1][2], Math.sin(0.3), TOL, 'rotX(-0.3)[1][2] 부호 반전');
 });
 
 test('inv3 는 역행렬이다', () => {

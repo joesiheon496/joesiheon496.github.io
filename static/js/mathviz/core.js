@@ -2,6 +2,8 @@
 //
 // 색은 PaperMod 의 CSS 변수에서 읽는다. 하드코딩하면 한쪽 테마에서 안 보인다.
 // 실측한 변수: --theme(배경) --primary(글자) --secondary(흐린 글자) --border(선)
+// accent 세 개는 seaborn deep 팔레트다. 6편이 지면·박스·기둥·절두체·지평선을
+// 구분해야 해서 세 번째가 늘었다. #55a868 은 mathviz.css 의 .ok 와 같은 값이다.
 
 export function themeColors() {
   const s = getComputedStyle(document.body);
@@ -13,6 +15,7 @@ export function themeColors() {
     grid:    pick('--border', '#ddd'),
     accent:  '#4c72b0',
     accent2: '#c44e52',
+    accent3: '#55a868',
   };
 }
 
@@ -165,7 +168,19 @@ export function makeSliders(el, defs, onInput) {
     return out;
   }
 
-  return { setValues, getValues, clamp };
+  /**
+   * 슬라이더를 비활성화한다. 6편 데모 1 의 dolly zoom 이 `거리` 를 가져갈 때 쓴다 —
+   * 값이 f 에서 파생되므로 사람이 만지면 안 된다.
+   */
+  function setDisabled(keys, flag) {
+    keys.forEach((k) => {
+      if (!rows[k]) return;
+      rows[k].input.disabled = !!flag;
+      rows[k].input.style.opacity = flag ? 0.45 : '';
+    });
+  }
+
+  return { setValues, getValues, clamp, setDisabled };
 }
 
 export function attachDrag(canvas, view, getPoints, onDrag) {

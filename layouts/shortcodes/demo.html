@@ -1,11 +1,22 @@
-{{/* 인터랙티브 데모 삽입. 사용법: {{< demo name="transform2d" >}} */}}
+{{/* 인터랙티브 데모 삽입. 사용법: {{< demo name="transform2d" >}}
+     2패널이 필요하면: {{< demo name="pinhole" panes="2" >}}
+     panes 를 안 주면 캔버스 하나 — 1~5편과 DOM 이 같다. */}}
 {{ $name := .Get "name" }}
+{{ $panes := int (default 1 (.Get "panes")) }}
 {{ $id := printf "mv-%s-%d" $name .Ordinal }}
 <link rel="stylesheet" href="{{ "css/mathviz.css" | relURL }}">
 <div class="mv-demo" id="{{ $id }}">
   <div class="mv-tabs"></div>
   <div class="mv-body">
-    <div class="mv-left"><canvas></canvas></div>
+    <div class="mv-left">
+      {{ if gt $panes 1 }}
+      <div class="mv-panes">
+        {{ range seq $panes }}<div class="mv-pane"><canvas></canvas></div>{{ end }}
+      </div>
+      {{ else }}
+      <canvas></canvas>
+      {{ end }}
+    </div>
     <div class="mv-right">
       <div class="mv-sliders"></div>
       <div class="mv-matrix-host"></div>

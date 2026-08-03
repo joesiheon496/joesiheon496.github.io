@@ -451,7 +451,7 @@ export function groundFromImage({ K, R, t }, [u, v]) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test 2>&1 | tail -20`
-Expected: PASS — `pass 130`
+Expected: PASS — 신규 7개 포함 `pass 131`
 
 - [ ] **Step 5: Commit**
 
@@ -621,7 +621,7 @@ export function projectPolyline(cam, pts, { closed = false } = {}) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test 2>&1 | tail -20`
-Expected: PASS — `pass 133`
+Expected: PASS — `pass 134`
 
 - [ ] **Step 5: Commit**
 
@@ -769,7 +769,7 @@ export const horizon = ({ K, R }, n) => matVec(transpose(inv3(K)), matVec(R, n))
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test 2>&1 | tail -20`
-Expected: PASS — `pass 137`
+Expected: PASS — `pass 138`
 
 - [ ] **Step 5: Commit**
 
@@ -868,7 +868,7 @@ export function planeHomography(cam) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npm test 2>&1 | tail -20`
-Expected: PASS — `pass 138`
+Expected: PASS — `pass 139`
 
 - [ ] **Step 5: Commit**
 
@@ -918,7 +918,7 @@ export PATH="$PATH:/c/Program Files/Go/bin"
 hugo --gc --minify 2>&1 | tail -20
 grep -c '<canvas' public/posts/sgd-noise/index.html
 ```
-Expected: `pass 138`, 빌드 성공, `sgd-noise` 에 canvas 2개 (데모 2개 × 1패널).
+Expected: `pass 139`, 빌드 성공, `sgd-noise` 에 canvas 2개 (데모 2개 × 1패널).
 이 숫자를 적어둔다 — Step 5 에서 다시 확인한다.
 
 - [ ] **Step 2: shortcode 를 고친다**
@@ -1029,7 +1029,7 @@ grep -c '<canvas' public/posts/sgd-noise/index.html
 grep -c '<canvas' public/posts/2d-transform-matrix/index.html
 grep -rc '<del>' public/posts/ | grep -v ':0' || echo "del 0건 OK"
 ```
-Expected: `pass 138` (변화 없음), 빌드 성공, canvas 개수가 Step 1 과 **동일**,
+Expected: `pass 139` (변화 없음), 빌드 성공, canvas 개수가 Step 1 과 **동일**,
 `<del>` 0건.
 
 - [ ] **Step 6: 1\~5편 데모를 브라우저에서 확인한다**

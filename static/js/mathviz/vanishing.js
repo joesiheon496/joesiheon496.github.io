@@ -62,7 +62,17 @@ export function init(root) {
   const readout = root.querySelector('.mv-readout');
   const hint = root.querySelector('.mv-hint');
 
-  const state = { theta: 0.4, pitch: PITCH0, logF: Math.log10(F_DEFAULT) };
+  // 🔑 기본 θ 는 **소실점이 화면 안에 들어오는** 값이어야 한다. 초판은 0.4 였는데
+  // 그러면 소실점이 u=1433 으로 화면(0\~480) 밖에 나가서, 마커가 가장자리 화살표로만
+  // 보이고 직선들의 각도폭이 15° 밖에 안 된다 — 사실상 평행하게 보인다. 그 상태로
+  // `흔들기` 를 누르면 "점은 그대로인데 직선만 움직인다" 가 아니라 "뷰가 돌아간다"
+  // 로 읽힌다. 데모의 주장이 화면에서 관측 불가능해진다.
+  //
+  // atan2(1, 0.4) 는 글의 수렴 표가 쓰는 방향 d = normalize(0.4, 1, 0) 과 같다.
+  // 소실점이 (441.77, 173.33) 로 화면 안이고 각도폭이 146° 라 수렴이 눈에 보이며,
+  // 글에 적힌 소실점 좌표와 데모의 기본 상태가 정확히 일치한다.
+  const THETA0 = Math.atan2(1, 0.4);
+  const state = { theta: THETA0, pitch: PITCH0, logF: Math.log10(F_DEFAULT) };
   let shakeCount = 0;
   let toggles;
   // 흔들기 직전의 마커·직선 끝점 — "마커 이동" readout 이 진짜 전후 비교가 되려면

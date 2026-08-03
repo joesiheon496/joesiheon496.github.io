@@ -260,7 +260,14 @@ export function conditionNumber(pairs) {
  * **AᵀA 의 최소 고유벡터**를 취한다 — 그게 최소제곱해다.
  *
  * @param normalized Hartley 정규화 여부. 껐다 켜며 비교하는 것이 데모 2 의 요점이다.
- * @param enforceRank2 σ3 을 0 으로 눌러 rank 2 를 강제한다. 끄면 에피폴이 정의되지 않는다.
+ * @param enforceRank2 σ3 을 0 으로 눌러 rank 2 를 강제한다.
+ *
+ * ⚠️ **강제가 정확도를 개선하지는 않는다.** 처음 이 주석에 "끄면 에피폴이 정의되지
+ * 않는다" 고 적었는데 실측으로 뒤집혔다 — 잡음 5수준 × 40회에서 끈 쪽이 전부 같거나
+ * 약간 낫다 (σ=0.5 에서 에피폴 오차 6.30 대 6.53 px). 강제는 σ₃/σ₁ 을 1000배
+ * 줄이는 일만 확실히 한다 (1.7e-8 → 3.3e-11). 강제하는 이유는 정확도가 아니라
+ * (1) 유효한 F 의 정의가 det F = 0 이라는 것, (2) 8편의 E 분해가 요구하는 것이다.
+ * 스펙 §2-8, §3-6
  */
 export function fundamentalFromPairs(pairs, { normalized = true, enforceRank2 = true } = {}) {
   let p = pairs, T1 = null, T2 = null;

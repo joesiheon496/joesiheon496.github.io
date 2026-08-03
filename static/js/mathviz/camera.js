@@ -171,3 +171,31 @@ export function projectPolyline(cam, pts, { closed = false } = {}) {
   }
   return out;
 }
+
+// ---------- 소실점 ----------
+
+/**
+ * 방향 d 의 소실점. v ~ K R d
+ *
+ * 🔑 X0 가 없다. 직선의 **위치가 아니라 방향만** 소실점을 정한다. 그래서 평행선
+ * 다발이 한 점에서 만난다. 6편의 핵심 결과다.
+ *
+ * ⚠️ h 를 항상 반환한다. d 가 상면에 평행하면 h[2] = 0 이고 (u,v) 는 무한이라
+ * NaN 이 된다 — 지평선 검사와 그리기는 h 로 해야 한다.
+ */
+export function vanishingPoint({ K, R }, d) {
+  const h = matVec(matMul(K, R), d);
+  const scaleRef = Math.max(Math.abs(h[0]), Math.abs(h[1]), 1);
+  const atInfinity = Math.abs(h[2]) <= 1e-12 * scaleRef;
+  return { h, atInfinity, u: h[0] / h[2], v: h[1] / h[2] };
+}
+
+/**
+ * 법선 n 인 평면의 소실선(지평선). l = K⁻ᵀ R n
+ *
+ * 그 평면에 놓인 모든 방향의 소실점이 이 선 위에 있다: l·h = 0.
+ * 지면(n = (0,0,1))이면 지평선이다.
+ */
+export function horizon({ K, R }, n) {
+  return matVec(transpose(inv3(K)), matVec(R, n));
+}

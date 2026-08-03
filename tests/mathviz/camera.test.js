@@ -6,6 +6,7 @@ import {
   rotX, rotY, rotZ, lookAt, cameraCenter,
   intrinsics, fovFromF, fFromFov, projectPoint, cameraMatrix, groundFromImage,
   NEAR, depthOf, clipSegmentNear, projectPolyline,
+  vanishingPoint, horizon,
 } from '../../static/js/mathviz/camera.js';
 
 const TOL = 1e-9;
@@ -259,4 +260,77 @@ test('projectPolyline: 근평면을 지나는 폴리라인이 조각으로 나�
   const sq = [[-1, 2, 0], [1, 2, 0], [1, 4, 0], [-1, 4, 0]];
   assert.equal(projectPolyline(cam, sq, { closed: true })[0].length, 5, '닫으면 점이 하나 늘어난다');
   assert.equal(projectPolyline(cam, sq)[0].length, 4, '열면 그대로');
+});
+
+test('vanishingPoint: X0 가 다른 평행선들의 먼 점이 한 소실점으로 모인다', () => {
+  // ⚠️ vanishingPoint 를 다시 부르는 것으로 검증하면 헛검증이다 — 그 함수는
+  // X0 를 애초에 받지 않아 이동량 0 이 자명하다. 스펙 §3-1.
+  // 직선들의 먼 점을 실제로 투영해야 한다. 수렴은 O(1/s).
+  const cam = BASE();
+  const d = normalize([0.4, 1, 0]);
+  const vp = vanishingPoint(cam, d);
+  close(vp.u, 441.769946, 1e-5, '소실점 u');
+  close(vp.v, 173.333333, 1e-5, '소실점 v');
+
+  const OFFSETS = [[0, 0, 0], [-3, 0, 0], [2, 1, 0], [5, -2, 0], [-8, 4, 0]];
+  const S = 1e6;
+  for (const X0 of OFFSETS) {
+    const p = projectPoint(cam, add(X0, scale(d, S)));
+    close(p.u, vp.u, 0.01, `X0=${X0} 의 먼 점 u`);
+    close(p.v, vp.v, 0.01, `X0=${X0} 의 먼 점 v`);
+  }
+  // 수렴이 실제로 1/s 인지 — s 를 100배 하면 오차가 100배 줄어야 한다
+  const err = (s) => {
+    const p = projectPoint(cam, add([5, -2, 0], scale(d, s)));
+    return Math.hypot(p.u - vp.u, p.v - vp.v);
+  };
+  const ratio = err(1e4) / err(1e6);
+  assert.ok(ratio > 50 && ratio < 200, `1/s 수렴이어야 한다 (비 ${ratio})`);
+});
+
+test('vanishingPoint: 상면에 평행한 방향은 무한으로 간다', () => {
+  // 광축이 YZ 평면에 있으면 x 방향은 상면에 평행하다.
+  const cam = BASE();
+  const vp = vanishingPoint(cam, [1, 0, 0]);
+  assert.equal(vp.atInfinity, true, 'atInfinity 여야 한다');
+  close(vp.h[2], 0, 1e-12, 'h 의 세 번째 성분이 0');
+  assert.ok(Math.abs(vp.h[0]) > 1, 'h 가 영벡터는 아니다');
+
+  // 수평 카메라에서 광축 방향의 소실점은 주점이다
+  const level = { K: K0(), ...lookAt({ eye: [0, -6, 1.6], target: [0, 1, 1.6], up: [0, 0, 1] }) };
+  const fwd = vanishingPoint(level, [0, 1, 0]);
+  assert.equal(fwd.atInfinity, false);
+  close(fwd.u, CX, 1e-9, '주점 u');
+  close(fwd.v, CY, 1e-9, '주점 v');
+});
+
+test('horizon: 지면 방향 전부가 l·h = 0 을 만족한다 (무한인 방향도)', () => {
+  // ⚠️ l·(u,v,1) 로 검사하면 atInfinity 에서 NaN 이다. 스펙 §3-2.
+  const cam = BASE();
+  const l = horizon(cam, [0, 0, 1]);
+  closeVec(l, [0, -1.9825e-3, 3.4363e-1], 1e-5, 'l 실측값');
+
+  let sawInfinity = false;
+  for (let i = 0; i < 24; i++) {
+    const th = i * Math.PI / 12;
+    const d = normalize([Math.cos(th), Math.sin(th), 0]);
+    const vp = vanishingPoint(cam, d);
+    if (vp.atInfinity) sawInfinity = true;
+    // h 는 스케일이 자유롭다 — 상대 크기로 판단한다
+    close(dot(l, vp.h) / norm(vp.h), 0, 1e-9, `l·h (θ=${th.toFixed(3)})`);
+  }
+  assert.ok(sawInfinity, 'θ 를 훑는 중에 무한인 방향이 나와야 한다 (검사가 의미 있으려면)');
+});
+
+test('horizon: 지면 방향들의 소실점 v 가 전부 같다', () => {
+  // 스펙 §2-5. u 는 10320 까지 발산하는데 v 는 소수점 여섯째 자리까지 같다.
+  const cam = BASE();
+  const vs = [], us = [];
+  for (const th of [0.05, 0.4, 0.7, 1.2, 1.571, 2.4, 3.0]) {
+    const vp = vanishingPoint(cam, normalize([Math.cos(th), Math.sin(th), 0]));
+    assert.equal(vp.atInfinity, false, `θ=${th} 는 유한해야 한다`);
+    vs.push(vp.v); us.push(vp.u);
+  }
+  for (const v of vs) close(v, 173.333333, 1e-6, '전부 같은 높이');
+  assert.ok(Math.max(...us) > 10000, `u 는 발산한다 (최대 ${Math.max(...us)})`);
 });

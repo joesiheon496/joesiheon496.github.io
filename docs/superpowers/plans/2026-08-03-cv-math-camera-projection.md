@@ -1775,17 +1775,24 @@ export function init(root) {
       // 이미지를 지면으로 되펴서 장면 뷰의 실제 격자에 겹친다. 정확히 겹치면 1편 매듭.
       const H = planeHomography(cam);
       const sctx = sceneCanvas.getContext('2d');
+      // ⚠️ 실패한 점(groundFromImage 가 null)을 참값으로 **대체하지 않는다.**
+      // `g ?? [X,Y,0]` 로 메우면 되펴기가 실패한 자리에서도 실제 격자와 겹쳐 보여
+      // "정확히 겹친다" 주장이 반증 불가능해진다. 연속 성공 구간만 모아 끊어 그린다 —
+      // 실패는 눈에 보이는 빈틈으로 남아야 한다. (실측: 68점 중 21점이 null)
+      const runs = [];
+      let run = [];
+      const flush = () => { if (run.length >= 2) runs.push(run); run = []; };
       for (const poly of GROUND_LINES) {
-        const back = poly.map(([X, Y]) => {
-          const img = applyH(H, [X, Y]);          // 지면 → 이미지
-          const g = groundFromImage(cam, img);    // 이미지 → 지면 (되펴기)
-          return g ?? [X, Y, 0];
-        });
-        for (const run of [back]) {
-          const proj = run.map((P) => { const p = projectPoint(OBS, P); return [p.u, p.v]; });
-          drawPath(sctx, sceneView, proj, { color: c.accent3, width: 3 });
+        for (const [X, Y] of poly) {
+          const g = groundFromImage(cam, applyH(H, [X, Y]));   // 지면 → 이미지 → 지면
+          if (g) run.push(g); else flush();
         }
+        flush();                                  // 폴리라인 경계에서도 끊는다
       }
+      // ⚠️ 되편 구간도 **3D 선분**이므로 drawPolys 를 지난다. projectPoint 로 점마다
+      // 찍어 drawPath 에 넘기면 전역 규약(모든 3D 선은 projectPolyline 을 지난다)을
+      // 깨고, 깊이 ≤ 0 점이 섞이는 순간 화면을 가로지르는 선이 된다.
+      drawPolys(sctx, sceneView, OBS, runs, { color: c.accent3, width: 3 });
     }
 
     renderReadout(cam, vps, offsets, dirs);

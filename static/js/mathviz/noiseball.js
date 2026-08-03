@@ -249,15 +249,15 @@ export function init(root) {
         &nbsp;·&nbsp; <b>η/B = ${f3(eta / vals.batch)}</b></div>
       <div>발산 문턱 2/λ<sub>max</sub> = ${f3(thr)} &nbsp;·&nbsp; η/문턱 = ${ratioToThr.toFixed(3)}
         &nbsp;→&nbsp; ${verdict}</div>
-      <div>RMS‖w‖ 실측 <b>${f4(ball ? ball.rms : NaN)}</b>
-        &nbsp;·&nbsp; 예측 ${f4(pred ? pred.rms : NaN)}</div>
-      <div>급한축 σ = ${f4(ball ? ball.stdSteep : NaN)}
-        &nbsp;·&nbsp; 평평축 σ = ${f4(ball ? ball.stdFlat : NaN)}</div>
+      <div>RMS‖w‖ <b>${f4(stable ? stable.rms : NaN)}</b>
+        &nbsp;·&nbsp; 예측 <b>${f4(pred ? pred.rms : NaN)}</b></div>
       <div>공의 모양 <b>비 = ${f3(stable ? stable.ratio : NaN)}</b>
-        (시드 ${stable ? stable.seeds : 0}개 · ${STABLE_STEPS} 스텝)
-        &nbsp;·&nbsp; 예측비 <b>${f3(pred ? pred.ratio : NaN)}</b>
-        ${freshStable ? '' : ' <b>(갱신 중)</b>'}</div>
-      <div style="opacity:.8">이 궤적 하나만의 비 = ${f3(ball ? ball.ratio : NaN)}
+        &nbsp;·&nbsp; 예측비 <b>${f3(pred ? pred.ratio : NaN)}</b></div>
+      <div style="opacity:.75;font-size:.9em">위 두 줄은 시드 ${stable ? stable.seeds : 0}개
+        · ${STABLE_STEPS} 스텝 평균이다${freshStable ? '' : ' <b>(갱신 중)</b>'}</div>
+      <div style="opacity:.8">그린 궤적 하나만으로는 RMS ${f4(ball ? ball.rms : NaN)}
+        &nbsp;· 비 ${f3(ball ? ball.ratio : NaN)}
+        (급한축 σ ${f4(ball ? ball.stdSteep : NaN)} / 평평축 σ ${f4(ball ? ball.stdFlat : NaN)})
         &nbsp;— 독립표본 약 ${indep.toFixed(0)} 개뿐이라 흔들린다</div>
       <table class="mv-table"><thead>
         <tr><th>노이즈 출처</th><th style="text-align:right">이 κ 에서의 점근 비</th></tr>
@@ -267,9 +267,10 @@ export function init(root) {
         <tr><td>급한축 편중 Σ∝A²</td><td style="text-align:right">√κ = ${refHess2.toFixed(3)}</td></tr>
       </tbody></table>
       <div style="opacity:.7;font-size:.85em">
-        RMS 는 화면에 그린 궤적의 <b>후반 절반</b>(${ball ? ball.samples : 0} 표본)에서 잰다.
-        비만 따로 시드 ${DEFAULT_SEEDS.length}개로 재는 이유는 평평축의 상관시간이
-        1/(η·λ<sub>min</sub>) = <b>${tauFlat.toFixed(0)} 스텝</b>이어서 한 궤적으로는 부족하기 때문이다.
+        RMS 와 비 <b>둘 다</b> 시드 ${DEFAULT_SEEDS.length}개로 따로 재는 이유는 평평축의 상관시간이
+        1/(η·λ<sub>min</sub>) = <b>${tauFlat.toFixed(0)} 스텝</b>이라, 그린 궤적의 후반 절반
+        (${ball ? ball.samples : 0} 표본)에 독립표본이 ${indep.toFixed(0)} 개밖에 없기 때문이다.
+        <b>반복 (그림)</b> 슬라이더는 그려지는 궤적만 바꾸고 위 숫자는 바꾸지 않는다.
         손실 등고선의 반축비는 언제나 1/√κ = ${refIso.toFixed(3)} 인데,
         공의 비는 노이즈 출처를 바꾸면 위 표의 세 값으로 옮겨간다.
       </div>`;

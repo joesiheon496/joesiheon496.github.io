@@ -150,6 +150,47 @@ test('predictedBall: 예측이 실측과 5% 안쪽이다 (스펙 §2-1 예측 �
   }
 });
 
+test('🚩 데모가 표시하는 설정(시드 5개·2만 스텝)에서 RMS 가 예측과 5% 안쪽이다 (스펙 §3-11 정정)', () => {
+  // 배포 후 데모 1 이 `RMS 실측 0.0822 · 예측 0.0723`(14% 어긋남)을 찍고 있었다.
+  // 원인은 궤적 하나(독립표본 10개)로 RMS 를 잰 것이고, 처방은 시드 평균이다.
+  // 이 테스트가 없어서 코드·빌드·기존 테스트를 다 통과하고도 화면에서만 드러났다.
+  const STABLE_STEPS = 20000;
+  for (const noise of NOISE_KINDS) {
+    const A = rotatedHessian(30, 0);
+    const comps = makeComponents({ A, n: 200, s: 1, noise, seed: 99 });
+    const eta = Math.pow(10, -2.3);          // 데모 1 의 기본 η
+    const r = avgBall((seed) => noiseBall({
+      A, comps, eta, B: 1, steps: STABLE_STEPS, seed, start: [0, 0],
+    }));
+    const p = predictedBall({ A, Sigma: componentCovariance(comps), eta });
+    assert.ok(rel(r.rms, p.rms) < 0.05, `${noise}: 안정 RMS ${r.rms} vs 예측 ${p.rms}`);
+    assert.ok(rel(r.ratio, p.ratio) < 0.05, `${noise}: 안정 비 ${r.ratio} vs 예측 ${p.ratio}`);
+  }
+  // 데모 2 의 기본 설정도 같이 고정한다
+  const A2 = olsHessian(FIT_POINTS);
+  const S2 = olsNoiseCov(FIT_POINTS);
+  const eta2 = Math.pow(10, -2.7);
+  const r2 = avgBall((seed) => olsNoiseBall({
+    points: FIT_POINTS, eta: eta2, B: 1, steps: STABLE_STEPS, seed,
+  }));
+  const p2 = predictedBall({ A: A2, Sigma: S2, eta: eta2 });
+  assert.ok(rel(r2.rms, p2.rms) < 0.06, `데모2 RMS ${r2.rms} vs 예측 ${p2.rms}`);
+});
+
+test('🚩 궤적 하나의 RMS 는 예측과 크게 어긋날 수 있다 — 시드 평균이 필요한 이유', () => {
+  // 위 테스트의 대우. 이 성질이 성립하지 않으면 시드 평균을 쓸 이유가 없다.
+  const A = rotatedHessian(30, 0);
+  const comps = makeComponents({ A, n: 200, s: 1, noise: 'hess', seed: 99 });
+  const eta = Math.pow(10, -2.3);
+  const { path } = sgdPath({ A, comps, start: [2.5, 0.7], steps: 8000, eta, B: 1, seed: 1 });
+  const one = ballFromPath(A, path, { burnFrac: 0.5 });
+  const p = predictedBall({ A, Sigma: componentCovariance(comps), eta });
+  // 데모의 기본 설정 그대로다. 실측에서 +14% 였다.
+  assert.ok(rel(one.rms, p.rms) > 0.08,
+    `궤적 하나가 예측과 8% 넘게 갈려야 한다 (실측 ${one.rms} vs ${p.rms}). `
+    + '만약 잘 맞는다면 시드 평균 처방의 근거가 사라진 것이므로 §3-11 을 재검토할 것.');
+});
+
 test('noiseBall: 크기는 η/B 가 정한다 (스펙 §2-2)', () => {
   const A = rotatedHessian(10, 0);
   const comps = makeComponents({ A, n: 200, noise: 'iso', seed: 99 });

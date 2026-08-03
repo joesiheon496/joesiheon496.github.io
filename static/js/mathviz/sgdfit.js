@@ -181,19 +181,22 @@ export function init(root) {
         &nbsp;(1 이면 등분산 → Σ ∝ A → 공이 원)</div>
       <div>Σ/A 성분비 = ${sr.map((v) => v.toPrecision(3)).join(', ')}
         &nbsp;·&nbsp; 최대/최소 <b>${Number.isFinite(srSpread) ? srSpread.toFixed(3) : '—'}</b></div>
-      <div>공: RMS ${f4(ball ? ball.rms : NaN)}
-        &nbsp;·&nbsp; <b>비 = ${f3(stable ? stable.ratio : NaN)}</b>
-        (시드 ${stable ? stable.seeds : 0}개 · ${STABLE_STEPS} 스텝)
-        &nbsp;·&nbsp; 예측비 <b>${f3(pred ? pred.ratio : NaN)}</b>
-        ${freshStable ? '' : ' <b>(갱신 중)</b>'}</div>
-      <div style="opacity:.8">이 궤적 하나만의 비 = ${f3(ball ? ball.ratio : NaN)}
+      <div>공: RMS <b>${f4(stable ? stable.rms : NaN)}</b>
+        &nbsp;·&nbsp; 예측 <b>${f4(pred ? pred.rms : NaN)}</b></div>
+      <div>공의 모양 <b>비 = ${f3(stable ? stable.ratio : NaN)}</b>
+        &nbsp;·&nbsp; 예측비 <b>${f3(pred ? pred.ratio : NaN)}</b></div>
+      <div style="opacity:.75;font-size:.9em">위 두 줄은 시드 ${stable ? stable.seeds : 0}개
+        · ${STABLE_STEPS} 스텝 평균이다${freshStable ? '' : ' <b>(갱신 중)</b>'}</div>
+      <div style="opacity:.8">그린 궤적 하나만으로는 RMS ${f4(ball ? ball.rms : NaN)}
+        &nbsp;· 비 ${f3(ball ? ball.ratio : NaN)}
         &nbsp;— 평평축 상관시간 ${tauFlat.toFixed(0)} 스텝, 독립표본 약 ${indep.toFixed(0)} 개</div>
       <div>${vals.steps} 회 · 닫힌 해와의 거리 ${dist.toExponential(2)}</div>
       <div style="opacity:.7;font-size:.85em">
         상한 ${MAX_STEPS} 회. 거리는 중심화 여부와 무관하게 원 좌표에서 잰다.
         회색 선(닫힌 해)은 토글에 움직이지 않는다.
-        RMS 는 궤적 후반 절반(${ball ? ball.samples : 0} 표본)에서 실제로 푼 좌표계로 잰다.
-        비만 시드 ${DEFAULT_SEEDS.length}개로 따로 재는 이유는 상관시간 때문이다.
+        RMS 와 비 <b>둘 다</b> 시드 ${DEFAULT_SEEDS.length}개로 따로 재는 이유는 상관시간 때문이다
+        — 그린 궤적 후반 절반(${ball ? ball.samples : 0} 표본)에 독립표본이
+        ${indep.toFixed(0)} 개밖에 없다. 모두 실제로 푼 좌표계로 잰다.
       </div>`;
 
     root.querySelector('.mv-hint').textContent =

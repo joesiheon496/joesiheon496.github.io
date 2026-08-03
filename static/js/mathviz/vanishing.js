@@ -177,24 +177,20 @@ export function init(root) {
       // 잇고 null 에서 폴리라인을 끊는다 — 실패가 빈틈으로 드러나야 한다.
       const H = planeHomography(cam);
       const sctx = sceneCanvas.getContext('2d');
+      // 3D 선은 반드시 drawPolys(→ projectPolyline) 를 지난다 — raw projectPoint 로
+      // 직접 그리면 근평면 클리핑을 건너뛰어 z<=0 에서 뒤집힌 좌표가 나올 수 있다.
+      const runs = [];
+      let run = [];
+      const flush = () => { if (run.length >= 2) runs.push(run); run = []; };
       for (const poly of GROUND_LINES) {
-        const backPts = poly.map(([X, Y]) => {
+        for (const [X, Y] of poly) {
           const img = applyH(H, [X, Y]);          // 지면 → 이미지
-          return groundFromImage(cam, img);        // 이미지 → 지면 (되펴기), 실패하면 null
-        });
-        let run = [];
-        const flush = () => {
-          if (run.length >= 2) {
-            const proj = run.map((P) => { const p = projectPoint(OBS, P); return [p.u, p.v]; });
-            drawPath(sctx, sceneView, proj, { color: c.accent3, width: 3 });
-          }
-          run = [];
-        };
-        for (const g of backPts) {
+          const g = groundFromImage(cam, img);    // 이미지 → 지면 (되펴기), 실패하면 null
           if (g) run.push(g); else flush();
         }
-        flush();
+        flush();                                  // 폴리라인 경계에서도 끊는다
       }
+      drawPolys(sctx, sceneView, OBS, runs, { color: c.accent3, width: 3 });
     }
 
     renderReadout(cam, vps, offsets, dirs);

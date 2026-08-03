@@ -199,3 +199,17 @@ export function vanishingPoint({ K, R }, d) {
 export function horizon({ K, R }, n) {
   return matVec(transpose(inv3(K)), matVec(R, n));
 }
+
+// ---------- 1편 매듭 ----------
+
+/**
+ * Z = 0 평면 → 이미지의 3×3 Homography. P = K[R|t] 의 1·2·4 열이다.
+ *
+ * 🔑 Z = 0 이면 P 의 세 번째 열이 곱해질 상대가 없어 죽는다. 남는 3×3 이
+ * 정확히 1편의 Homography 다 — 자유도 8(스케일 자유)까지 같다. 체커보드
+ * 캘리브레이션이 되는 이유가 여기 있다: 체커보드는 평면이다.
+ */
+export function planeHomography(cam) {
+  const P = cameraMatrix(cam);
+  return P.map((row) => [row[0], row[1], row[3]]);
+}

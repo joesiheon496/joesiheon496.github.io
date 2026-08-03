@@ -6,8 +6,9 @@ import {
   rotX, rotY, rotZ, lookAt, cameraCenter,
   intrinsics, fovFromF, fFromFov, projectPoint, cameraMatrix, groundFromImage,
   NEAR, depthOf, clipSegmentNear, projectPolyline,
-  vanishingPoint, horizon,
+  vanishingPoint, horizon, planeHomography,
 } from '../../static/js/mathviz/camera.js';
+import { apply as applyH } from '../../static/js/mathviz/transform.js';
 
 const TOL = 1e-9;
 const close = (a, b, tol = TOL, msg) => assert.ok(
@@ -333,4 +334,36 @@ test('horizon: 지면 방향들의 소실점 v 가 전부 같다', () => {
   }
   for (const v of vs) close(v, 173.333333, 1e-6, '전부 같은 높이');
   assert.ok(Math.max(...us) > 10000, `u 는 발산한다 (최대 ${Math.max(...us)})`);
+});
+
+test('1편 매듭: Z=0 평면에서 3×4 가 1편의 3×3 Homography 로 접힌다', () => {
+  // 스펙 §2-9. 1편의 apply() 를 그대로 불러서 맞아야 한다 —
+  // 이게 "Homography 자유도 8 이 어디서 왔는가" 의 답이다.
+  const cam = BASE();
+  const H = planeHomography(cam);
+  assert.equal(H.length, 3);
+  assert.equal(H[0].length, 3);
+
+  for (const [X, Y] of [[0, 0], [1, 0.5], [-2, 3], [4, -1.5], [0.3, 0.7]]) {
+    const viaH = applyH(H, [X, Y]);
+    const viaP = projectPoint(cam, [X, Y, 0]);
+    close(viaH[0], viaP.u, 1e-9, `u (${X},${Y})`);
+    close(viaH[1], viaP.v, 1e-9, `v (${X},${Y})`);
+  }
+
+  // 자유도 8 — 스케일이 자유롭다
+  const scaled = H.map((row) => row.map((v) => v * -7.3));
+  for (const [X, Y] of [[0, 0], [1, 0.5], [-2, 3]]) {
+    const a = applyH(H, [X, Y]), b = applyH(scaled, [X, Y]);
+    close(b[0], a[0], 1e-9, `cH u (${X},${Y})`);
+    close(b[1], a[1], 1e-9, `cH v (${X},${Y})`);
+  }
+
+  // H 는 P 의 1·2·4 열이다
+  const P = cameraMatrix(cam);
+  for (let i = 0; i < 3; i++) {
+    close(H[i][0], P[i][0], TOL, `열0 (행${i})`);
+    close(H[i][1], P[i][1], TOL, `열1 (행${i})`);
+    close(H[i][2], P[i][3], TOL, `열2 (행${i})`);
+  }
 });

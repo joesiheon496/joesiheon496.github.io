@@ -6,7 +6,7 @@
 
 import {
   lookAt, intrinsics, projectPoint, vanishingPoint, horizon, planeHomography,
-  groundFromImage, normalize, add, scale, dot, norm,
+  groundFromImage, normalize, add, scale,
 } from './camera.js';
 import { apply as applyH } from './transform.js';
 import {
@@ -238,6 +238,30 @@ export function init(root) {
 
     hint.innerHTML = '<b>선 위치 흔들기</b>를 눌러보세요. 직선들이 전부 옮겨가는데 소실점 마커는 꿈쩍도 안 합니다 — 소실점은 방향만의 함수입니다. <code>직교 다발</code>과 <code>지평선</code>을 같이 켜면 두 소실점이 같은 높이에 놓입니다.';
   }
+
+  // 장면 뷰 드래그: 관찰자 이미지 점 → 지면 좌표 → 방향 θ
+  //
+  // ⚠️ θ 의 역산은 `atan2(g[1], g[0])` 이다 — d = (cos θ, sin θ, 0) 이므로 평범한
+  // atan2 다. 데모 1 의 yaw 역산 `atan2(g[0], -g[1])` 과 다르다 (그쪽은
+  // eye = (d sin φ, -d cos φ, h) 를 되돌리는 것이라 축이 다르다). 섞지 말 것.
+  //
+  // ⚠️ 직선의 방향은 부호를 뒤집어도 같은 직선이라 슬라이더 범위가 [0, π] 다.
+  // atan2 는 (-π, π] 를 주므로 음수면 π 를 더해 [0, π) 로 접는다.
+  attachDrag(sceneCanvas, sceneView, () => {
+    const d = normalize([Math.cos(state.theta), Math.sin(state.theta), 0]);
+    const p = projectPoint(OBS, scale(d, 3));
+    return p.z > 0 ? [[p.u, p.v]] : [];
+  }, (_i, worldPt) => {
+    const g = groundFromImage(OBS, worldPt);
+    if (!g) return;
+    if (Math.hypot(g[0], g[1]) < 1e-6) return;
+    let theta = Math.atan2(g[1], g[0]);
+    if (theta < 0) theta += Math.PI;
+    const next = sliders.clamp({ theta });
+    Object.assign(state, next);
+    sliders.setValues(next);
+    render();
+  });
 
   onThemeChange(render);
   window.addEventListener('resize', render);

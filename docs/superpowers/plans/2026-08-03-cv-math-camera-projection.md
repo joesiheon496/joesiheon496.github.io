@@ -1368,11 +1368,33 @@ export function init(root) {
     { key: 'wide', label: '장면 축소', value: false },
   ], () => { syncDolly(); render(); });
 
-  /** dolly 가 켜지면 거리는 f 에서 파생되므로 슬라이더를 잠근다. */
+  /**
+   * dolly 가 켜지면 `거리` **와 `pitch`** 를 둘 다 잠근다.
+   *
+   * 거리는 f 에서 파생되므로 당연하다. pitch 를 함께 잠그는 이유는 덜 당연한데,
+   * 실측으로 잡았다 — 조준점이 z 축의 `1.6 + d·tan ψ` 에 있고 dolly 가 eye 를
+   * 그 조준점에서 멀어지게 스케일하므로, ψ 가 크면 카메라 높이가 터진다:
+   *
+   *   ψ = -30° , f=2000 → 높이 +12.0 m (절두체가 SCENE_WIDE 를 벗어난다, 13점)
+   *   ψ = -7.6°, f=2000 → 높이  +4.0 m  ← 기본값, 정상
+   *   ψ = +20° , f=2000 → 높이  -4.9 m  🚨 지면 아래
+   *
+   * 지면 아래로 내려간 카메라는 바닥을 뚫고 위를 보므로 데모가 무의미해진다.
+   * 그래서 dolly 를 켤 때 pitch 를 기본값으로 **되돌리고** 잠근다. 그러면
+   * f × yaw 전 범위(6×5=30 조합)에서 절두체가 프레임 안에 있고 높이가
+   * 1.12 \~ 4.00 m 로 유지된다 — 전부 지면 위다. 실측 확인함.
+   *
+   * `f` 와 `yaw` 는 자유롭게 둔다. 평판 높이는 yaw 와 무관하게 82.6023 px 이라
+   * 불변 주장이 깨지지 않는다 (30 조합 전부 같은 값).
+   */
   function syncDolly() {
     const { dolly, wide } = toggles.getValues();
-    sliders.setDisabled(['dist'], dolly);
-    // dolly 는 카메라를 반경 24 까지 미므로 자동으로 시야를 넓힌다
+    if (dolly && state.pitch !== PITCH0) {
+      state.pitch = PITCH0;
+      sliders.setValues({ pitch: PITCH0 });
+    }
+    sliders.setDisabled(['dist', 'pitch'], dolly);
+    // dolly 는 카메라를 거리 24 까지 미므로 자동으로 시야를 넓힌다
     const useWide = wide || dolly;
     Object.assign(sceneWorld, useWide ? SCENE_WIDE : SCENE_HOME);
   }
@@ -1971,7 +1993,8 @@ hugo server -D
 ```
 
 - [ ] 데모 1: `dolly zoom` + `f` 200→2000 → 평판 82.6023 px 고정, 배경폭 76.5 → 248.1 px
-- [ ] 데모 1: dolly 중 `거리` 슬라이더 잠김, 카메라 높이 1.12 → 4.00
+- [ ] 데모 1: dolly 중 `거리`·`pitch` 슬라이더 잠김(pitch 는 기본값 복귀), 카메라 높이 1.12 → 4.00, 항상 지면 위
+- [ ] 데모 1: dolly 켠 채 `yaw` 를 −60° \~ 60° 훑어도 절두체가 프레임 안, 평판 82.6023 px 유지
 - [ ] 데모 1: `주점 cx` 밀면 평행이동만 (원근 불변)
 - [ ] 데모 1: 카메라를 박스 안으로 끌어도 화면 가로지르는 선 없음
 - [ ] 데모 1: 절두체가 카메라를 따라감

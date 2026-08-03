@@ -2,7 +2,7 @@
 
 - 날짜: 2026-08-03
 - 글 경로: `content/posts/camera-projection/index.md`
-- 상태: 설계 확정, 구현 전
+- 상태: 구현 완료 (브랜치 post6-camera-projection). 육안 확인만 미완 — §8 참조
 
 ## 목표
 

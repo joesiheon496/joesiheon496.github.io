@@ -208,3 +208,81 @@ export function symmetricEpipolarDistance(F, pairs) {
   }
   return sum / (2 * pairs.length);
 }
+
+// ---------- 8점 알고리즘 (2편 매듭) ----------
+
+/**
+ * Hartley 정규화 행렬. 무게중심을 원점으로 옮기고 평균거리를 √2 로 맞춘다.
+ *
+ * 🔑 이것이 고치는 것은 **조건수**다. 화소 좌표를 그대로 쓰면 A 의 성분이
+ * u·v ≈ 10⁵ 부터 1 까지 다섯 자리를 걸쳐서 cond(A) 가 1.3e5 까지 오른다.
+ * 정규화하면 57 로 내려간다 (2320배). 스펙 §2-6
+ */
+export function normalizingTransform(pts) {
+  const n = pts.length;
+  const cx = pts.reduce((s, p) => s + p[0], 0) / n;
+  const cy = pts.reduce((s, p) => s + p[1], 0) / n;
+  const d = pts.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cy), 0) / n;
+  const s = Math.SQRT2 / (d || 1);
+  return [[s, 0, -s * cx], [0, s, -s * cy], [0, 0, 1]];
+}
+
+const applyH = (T, [u, v]) => {
+  const r = matVec(T, [u, v, 1]);
+  return [r[0] / r[2], r[1] / r[2]];
+};
+
+/** 대응쌍에서 8점 알고리즘의 계수행렬 A 를 만든다. 행마다 x₂ᵀFx₁ = 0 한 개. */
+export function eightPointMatrix(pairs) {
+  return pairs.map(([[x1, y1], [x2, y2]]) => [
+    x2 * x1, x2 * y1, x2,
+    y2 * x1, y2 * y1, y2,
+    x1, y1, 1,
+  ]);
+}
+
+/** A 의 조건수. 널공간 방향(최소)을 제외한 σ_max/σ_min 이다. */
+export function conditionNumber(pairs) {
+  const A = eightPointMatrix(pairs);
+  const AtA = Array.from({ length: 9 }, (_, i) => (
+    Array.from({ length: 9 }, (_, j) => A.reduce((s, r) => s + r[i] * r[j], 0))
+  ));
+  const v = jacobiEig(AtA).values.map(Math.abs).sort((a, b) => b - a);
+  return Math.sqrt(v[0] / Math.max(v[7], 1e-300));
+}
+
+/**
+ * 대응점에서 F 를 푼다. 🔑 2편 매듭: **SVD 의 최소 특이벡터**가 답이다.
+ *
+ * 대응 하나가 x₂ᵀFx₁ = 0 이라는 선형식 하나를 준다. F 는 성분 9개인데 스케일이
+ * 자유롭기 때문에 자유도가 8 이고, 그래서 대응 8개면 결정된다. 식이 여덟 개인
+ * 9-미지수 동차계의 해가 곧 A 의 널공간이고, 잡음이 있으면 널공간이 비므로
+ * **AᵀA 의 최소 고유벡터**를 취한다 — 그게 최소제곱해다.
+ *
+ * @param normalized Hartley 정규화 여부. 껐다 켜며 비교하는 것이 데모 2 의 요점이다.
+ * @param enforceRank2 σ3 을 0 으로 눌러 rank 2 를 강제한다. 끄면 에피폴이 정의되지 않는다.
+ */
+export function fundamentalFromPairs(pairs, { normalized = true, enforceRank2 = true } = {}) {
+  let p = pairs, T1 = null, T2 = null;
+  if (normalized) {
+    T1 = normalizingTransform(pairs.map((q) => q[0]));
+    T2 = normalizingTransform(pairs.map((q) => q[1]));
+    p = pairs.map(([a, b]) => [applyH(T1, a), applyH(T2, b)]);
+  }
+
+  const A = eightPointMatrix(p);
+  const AtA = Array.from({ length: 9 }, (_, i) => (
+    Array.from({ length: 9 }, (_, j) => A.reduce((s, r) => s + r[i] * r[j], 0))
+  ));
+  const f = smallestEigVec(AtA);
+  let F = [[f[0], f[1], f[2]], [f[3], f[4], f[5]], [f[6], f[7], f[8]]];
+
+  if (enforceRank2) {
+    const { U, S, V } = svd3(F);
+    const D = [[S[0], 0, 0], [0, S[1], 0], [0, 0, 0]];
+    F = matMul(U, matMul(D, transpose(V)));
+  }
+  // 정규화 좌표계에서 푼 F 를 원래 화소 좌표로 되돌린다
+  if (normalized) F = matMul(transpose(T2), matMul(F, T1));
+  return normalizeMatrix(F);
+}

@@ -204,3 +204,149 @@ test('E 와 F 의 관계, 그리고 스케일 무관 비교', () => {
   // 다른 행렬은 0 이 아니다 — 지표가 무의미하지 않은지 확인
   assert.ok(matDiffUpToScale(F, E) > 1e-3, 'F 와 E 는 다른 행렬이다');
 });
+
+// ---------- 8점 알고리즘 ----------
+
+import {
+  fundamentalFromPairs, conditionNumber, normalizingTransform,
+  eightPointMatrix, symmetricEpipolarDistance,
+} from '../../static/js/mathviz/epipolar.js';
+
+/** 시드 난수 — Math.random 을 쓰지 않는다 (5편부터의 규약). */
+function makeNoise(seed) {
+  let s = seed >>> 0;
+  const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  return () => {
+    const u = 1 - rnd(), v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+}
+const jitter = (pairs, sigma, g) => pairs.map(([a, b]) => [
+  [a[0] + g() * sigma, a[1] + g() * sigma],
+  [b[0] + g() * sigma, b[1] + g() * sigma],
+]);
+/** 잡음 대응 8개로 F 를 풀고, 깨끗한 대응 전부로 기하 오차를 잰다. */
+function meanGeoErr(corr, sigma, normalized, runs = 30, seed = 7) {
+  const g = makeNoise(seed);
+  let sum = 0;
+  for (let k = 0; k < runs; k++) {
+    const F = fundamentalFromPairs(jitter(corr.slice(0, 8), sigma, g), { normalized });
+    sum += symmetricEpipolarDistance(F, corr);
+  }
+  return sum / runs;
+}
+
+test('🔑 8점 알고리즘 = SVD 최소 특이벡터 — 2편 매듭 (스펙 §2-5)', () => {
+  const [c1, c2] = FORWARD();
+  const Ftrue = fundamentalFromCameras(c1, c2);
+  const corr = correspond(c1, c2);
+  for (const normalized of [true, false]) {
+    const Fhat = fundamentalFromPairs(corr.slice(0, 8), { normalized });
+    const d = matDiffUpToScale(Fhat, Ftrue);
+    assert.ok(d < 1e-10, `${normalized ? '정규화 O' : '정규화 X'} 오차 ${d.toExponential(3)}`);
+  }
+  // 대응 8개가 A 의 행 8개를 만든다 — 자유도 8 과 같다
+  assert.equal(eightPointMatrix(corr.slice(0, 8)).length, 8);
+  assert.equal(eightPointMatrix(corr.slice(0, 8))[0].length, 9);
+});
+
+test('🔑 정규화가 고치는 것은 조건수다 (스펙 §2-6)', () => {
+  const [c1, c2] = FORWARD();
+  const eight = correspond(c1, c2).slice(0, 8);
+  const T1 = normalizingTransform(eight.map((q) => q[0]));
+  const T2 = normalizingTransform(eight.map((q) => q[1]));
+  const ap = (T, [u, v]) => {
+    const r = matVec(T, [u, v, 1]); return [r[0] / r[2], r[1] / r[2]];
+  };
+  const eightN = eight.map(([a, b]) => [ap(T1, a), ap(T2, b)]);
+
+  const raw = conditionNumber(eight), nrm = conditionNumber(eightN);
+  close(raw, 1.322e5, 1e4, 'cond(A) 정규화 X 실측');
+  close(nrm, 5.708e1, 5, 'cond(A) 정규화 O 실측');
+  assert.ok(raw / nrm > 1000, `개선 배율 ${(raw / nrm).toExponential(2)} (실측 2320배)`);
+
+  // 정규화된 점들은 무게중심이 원점, 평균거리가 √2
+  const cx = eightN.reduce((s, q) => s + q[0][0], 0) / 8;
+  const cy = eightN.reduce((s, q) => s + q[0][1], 0) / 8;
+  close(cx, 0, 1e-9, '무게중심 x');
+  close(cy, 0, 1e-9, '무게중심 y');
+  const md = eightN.reduce((s, q) => s + Math.hypot(q[0][0], q[0][1]), 0) / 8;
+  close(md, Math.SQRT2, 1e-9, '평균거리');
+});
+
+test('🚨 정규화의 정확도 이득은 배치가 정한다 (스펙 §2-7)', () => {
+  // 교과서는 "무조건 정규화" 로 뭉갠다. 실측하면 배치에 따라 1.2배에서 5배까지 다르다.
+  const fw = correspond(...FORWARD());
+  const st = correspond(...STEREO());
+
+  const fwN = meanGeoErr(fw, 0.5, true), fwU = meanGeoErr(fw, 0.5, false);
+  const stN = meanGeoErr(st, 0.5, true), stU = meanGeoErr(st, 0.5, false);
+  const fwRatio = fwU / fwN, stRatio = stU / stN;
+
+  assert.ok(fwRatio > 1.05 && fwRatio < 1.6,
+    `전진 배치 배율 ${fwRatio.toFixed(2)}× (실측 1.20×)`);
+  assert.ok(stRatio > 3 && stRatio < 8,
+    `좌우 스테레오 배율 ${stRatio.toFixed(2)}× (실측 5.22×)`);
+  assert.ok(stRatio > fwRatio * 2,
+    `스테레오 이득이 전진보다 훨씬 커야 한다 (${stRatio.toFixed(2)} vs ${fwRatio.toFixed(2)})`);
+
+  // 정규화한 쪽은 두 배치에서 비슷하게 좋다 — 나빠지는 건 정규화 안 한 쪽이다
+  assert.ok(stN < fwN * 2, `정규화하면 배치에 덜 민감하다 (${stN.toFixed(3)} vs ${fwN.toFixed(3)})`);
+  assert.ok(stU > fwU * 3, `정규화를 끄면 스테레오가 크게 나빠진다 (${stU.toFixed(3)} vs ${fwU.toFixed(3)})`);
+});
+
+test('🚨 rank 2 강제는 정확도를 개선하지 않는다 — 실측 (스펙 §2-8)', () => {
+  // 교과서는 rank 2 강제를 정확도 개선처럼 말한다. 실측하면 아니다.
+  // 모든 잡음 수준·두 배치에서 강제하지 않은 쪽이 **같거나 약간 낫다.**
+  // 강제하는 이유는 정확도가 아니라 유효한 F 의 정의(det F = 0)이고,
+  // E 에서 R,t 를 분해하는 8편이 그것을 요구하기 때문이다.
+  const corr = correspond(...FORWARD());
+  const g = makeNoise(7);
+  const noisy = jitter(corr.slice(0, 8), 0.5, g);
+
+  const withR2 = fundamentalFromPairs(noisy, { enforceRank2: true });
+  const without = fundamentalFromPairs(noisy, { enforceRank2: false });
+
+  // 강제하면 σ3 가 1000배쯤 작아진다 — 그 일은 확실히 한다
+  const rOn = svd3(withR2).S[2] / svd3(withR2).S[0];
+  const rOff = svd3(without).S[2] / svd3(without).S[0];
+  assert.ok(rOn < 1e-9, `강제하면 σ3/σ1 가 작다 (${rOn.toExponential(2)}, 실측 3.3e-11)`);
+  assert.ok(rOff > rOn * 100, `강제 안 하면 훨씬 크다 (${rOff.toExponential(2)}, 실측 1.7e-8)`);
+
+  // ⚠️ 그런데 σ3 를 0 으로 눌러도 정확히 0 이 되지는 않는다 — 정규화 좌표계에서
+  // 누른 뒤 F = T₂ᵀ F T₁ 로 되돌리면 부동소수 오차가 6e-11 쯤 남는다. 버그가 아니다.
+  assert.ok(rOn > 0, 'σ3 가 정확히 0 은 아니다 (역정규화의 부동소수 오차)');
+
+  // 🚨 정확도는 개선되지 않는다. 강제한 쪽이 더 낫다고 단정하면 실측과 어긋난다.
+  const eTrue = epipoles(fundamentalFromCameras(...FORWARD()));
+  const dist = (F) => {
+    const e = epipoles(F);
+    return Math.hypot(e.e1.u - eTrue.e1.u, e.e1.v - eTrue.e1.v);
+  };
+  assert.ok(dist(without) <= dist(withR2) * 1.1,
+    `강제 안 한 쪽이 같거나 낫다 (강제 ${dist(withR2).toFixed(2)} vs 미강제 ${dist(without).toFixed(2)} px)`);
+  assert.ok(symmetricEpipolarDistance(without, corr) <= symmetricEpipolarDistance(withR2, corr) * 1.1,
+    '기하 오차도 강제 안 한 쪽이 같거나 낫다');
+});
+
+test('🚨 에피폴이 화면 밖이면 위치 추정이 불안정하다 (스펙 §2-9)', () => {
+  // 데모 기본값을 전진 배치로 두는 두 번째 이유. 같은 잡음 0.5px 에서
+  // 전진(에피폴 화면 안)은 오차 6.5px, 스테레오(에피폴 u=1752)는 수천 px 다.
+  const est = (cams, seed) => {
+    const [c1, c2] = cams;
+    const corr = correspond(c1, c2);
+    const eTrue = epipoles(fundamentalFromCameras(c1, c2));
+    const g = makeNoise(seed);
+    let sum = 0;
+    const R = 20;
+    for (let k = 0; k < R; k++) {
+      const e = epipoles(fundamentalFromPairs(jitter(corr.slice(0, 8), 0.5, g)));
+      sum += Math.hypot(e.e1.u - eTrue.e1.u, e.e1.v - eTrue.e1.v);
+    }
+    return sum / R;
+  };
+  const fw = est(FORWARD(), 7);
+  const st = est(STEREO(), 7);
+  assert.ok(fw < 40, `전진 배치는 안정적이다 (${fw.toFixed(1)} px, 실측 6.5)`);
+  assert.ok(st > fw * 20, `스테레오는 훨씬 불안정하다 (${st.toFixed(0)} px vs ${fw.toFixed(1)} px)`);
+});

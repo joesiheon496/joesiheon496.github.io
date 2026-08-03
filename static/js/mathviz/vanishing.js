@@ -11,6 +11,7 @@ import {
 import { apply as applyH } from './transform.js';
 import {
   OBS, SCENE_HOME, IMAGE_WORLD, IMAGE_SIZE, IMAGE_CX, IMAGE_CY, F_DEFAULT,
+  CAM_HEIGHT, PITCH0,
   GROUND_LINES, drawPolys,
 } from './scene.js';
 import {
@@ -18,9 +19,7 @@ import {
   makeSliders, makeToggles, attachDrag, drawHandles,
 } from './core.js';
 
-const CAM_HEIGHT = 1.6;
 const DIST = 6;                                     // 고정 — 이 데모의 주제는 방향이다
-const PITCH0 = -7.5946 * Math.PI / 180;
 const LINE_EXTENT = 60;                             // 직선을 s ∈ [-60, 60] 까지 그린다
 const N_LINES = 5;
 
@@ -49,6 +48,9 @@ function offsetsFor(shakeCount) {
 /** 방향 d 의 직선을 3D 폴리라인으로. */
 const linePoly = (X0, d) => [add(X0, scale(d, -LINE_EXTENT)), add(X0, scale(d, LINE_EXTENT))];
 
+/** offset 다발의 s=LINE_EXTENT 먼 끝점들. readout 의 산포·흔들기 전후 비교가 같이 쓴다. */
+const farEndpoints = (cam, offsets, d) => offsets.map((X0) => projectPoint(cam, add(X0, scale(d, LINE_EXTENT))));
+
 export function init(root) {
   const canvases = root.querySelectorAll('canvas');
   if (canvases.length < 2) throw new Error('vanishing 은 panes="2" 가 필요하다');
@@ -63,6 +65,12 @@ export function init(root) {
   const state = { theta: 0.4, pitch: PITCH0, logF: Math.log10(F_DEFAULT) };
   let shakeCount = 0;
   let toggles;
+  // 흔들기 직전의 마커·직선 끝점 — "마커 이동" readout 이 진짜 전후 비교가 되려면
+  // 필요하다. vanishingPoint(cam,d) 를 그 자리에서 두 번 부르면 offset 을 안 받는
+  // 함수라 자명하게 0 이 나오는 헛검증이 된다 (tests/mathviz/camera.test.js 가
+  // 금지하는 패턴). 흔들기 버튼만 채운다 — 슬라이더가 덮어쓰면 "흔들기 전후" 의
+  // 의미가 사라진다.
+  let preShake = null;
 
   const sliders = makeSliders(sliderHost, [
     { key: 'theta', label: '방향 θ', min: 0, max: Math.PI, step: 0.004, value: state.theta,
@@ -85,7 +93,19 @@ export function init(root) {
   const shakeBtn = document.createElement('button');
   shakeBtn.textContent = '선 위치 흔들기';
   shakeBtn.style.gridColumn = 'span 2';
-  shakeBtn.addEventListener('click', () => { shakeCount += 1; render(); });
+  shakeBtn.addEventListener('click', () => {
+    // 증가 전에 현재(흔들기 전) 상태를 찍어둔다 — 마커는 동차 안전값으로,
+    // atInfinity 면 그 사실만 남기고 NaN 을 남기지 않는다.
+    const { cam } = build();
+    const d = normalize([Math.cos(state.theta), Math.sin(state.theta), 0]);
+    const vp = vanishingPoint(cam, d);
+    preShake = {
+      vp: vp.atInfinity ? { atInfinity: true } : { atInfinity: false, u: vp.u, v: vp.v },
+      ends: farEndpoints(cam, offsetsFor(shakeCount), d),
+    };
+    shakeCount += 1;
+    render();
+  });
   shakeRow.append(document.createElement('label'), shakeBtn);
   sliderHost.appendChild(shakeRow);
 
@@ -212,21 +232,41 @@ export function init(root) {
   function renderReadout(cam, vps, offsets, dirs) {
     const l = horizon(cam, [0, 0, 1]);
     const vp = vps[0];
-    // 직선 끝점들이 s=60 에서 얼마나 모였나 — 유한 길이라 0 이 아니다
-    const ends = offsets.map((X0) => projectPoint(cam, add(X0, scale(dirs[0], LINE_EXTENT))));
+    // 직선 끝점들이 s=60 에서 얼마나 모였나 — 유한 길이라 0 이 아니다 (흔들기와 무관)
+    const ends = farEndpoints(cam, offsets, dirs[0]);
     const us = ends.map((p) => p.u), vsv = ends.map((p) => p.v);
     const spread = Math.hypot(Math.max(...us) - Math.min(...us),
                               Math.max(...vsv) - Math.min(...vsv));
-    // 마커 이동 — offset 과 무관하므로 정확히 0 이다
-    const ref = vanishingPoint(cam, dirs[0]);
-    const move = vp.atInfinity ? 0 : Math.hypot(vp.u - ref.u, vp.v - ref.v);
+
+    // 마커 이동 — 흔들기 전(preShake)과 지금을 실제로 비교한다. vanishingPoint 를
+    // 같은 자리에서 두 번 부르면(예전 코드) offset 을 안 받는 함수라 자명하게
+    // 0 이 나오는 헛검증이다. 대신 흔들기 버튼이 찍어둔 진짜 이전 상태와 비교하고,
+    // 직선 끝점도 같이 얼마나 움직였는지를 나란히 보여준다 — 마커는 0, 직선은
+    // 많이 움직였다는 대비가 이 데모의 요점이다.
+    let shakeInfo;
+    if (!preShake) {
+      shakeInfo = '마커 이동 — <b>선 위치 흔들기</b> 를 눌러 확인';
+    } else {
+      let markerDelta;
+      if (preShake.vp.atInfinity !== vp.atInfinity) {
+        markerDelta = '비교 불가 (θ/pitch 변경으로 무한 여부가 바뀌었다)';
+      } else if (vp.atInfinity) {
+        markerDelta = '0.000000 px (무한 유지)';
+      } else {
+        markerDelta = `${Math.hypot(vp.u - preShake.vp.u, vp.v - preShake.vp.v).toFixed(6)} px`;
+      }
+      const lineDelta = Math.max(...ends.map((p, i) =>
+        Math.hypot(p.u - preShake.ends[i].u, p.v - preShake.ends[i].v)));
+      shakeInfo = `마커 이동 <b class="ok">${markerDelta}</b> (흔들기 전후) · `
+        + `직선 끝점 이동(최대) <b>${lineDelta.toFixed(2)} px</b>`;
+    }
 
     readout.innerHTML = `
       <div>소실점 ${vp.atInfinity
         ? '<b class="no">무한</b> (방향이 상면에 평행 — 이미지에서도 평행선이 평행하다)'
         : `<b>(${vp.u.toFixed(2)}, ${vp.v.toFixed(2)})</b>`}</div>
       <div>지평선 l = (${l.map((x) => x.toExponential(3)).join(', ')})</div>
-      <div>흔들기 ${shakeCount} 회 · 마커 이동 <b class="ok">${move.toFixed(6)} px</b></div>
+      <div>흔들기 ${shakeCount} 회 · ${shakeInfo}</div>
       <div>직선 끝점 산포 (s=${LINE_EXTENT}) ${spread.toFixed(2)} px</div>
       ${vps.length > 1 && !vps[0].atInfinity && !vps[1].atInfinity
         ? `<div>두 소실점의 v: ${vps.map((p) => p.v.toFixed(4)).join(' / ')} — 같으면 지평선 위다</div>`

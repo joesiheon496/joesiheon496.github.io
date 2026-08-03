@@ -43,10 +43,6 @@
 /* 2패널 데모 (6편). 패널마다 캔버스가 하나라 createView/attachDrag 를 그대로 쓴다. */
 .mv-panes { display: flex; gap: .6rem; }
 .mv-pane { flex: 1 1 50%; min-width: 0; }
-.mv-pane-label {
-  font-size: .78rem; color: var(--secondary);
-  text-align: center; margin-bottom: .2rem;
-}
 
 @media (max-width: 720px) {
   .mv-body { flex-direction: column; }

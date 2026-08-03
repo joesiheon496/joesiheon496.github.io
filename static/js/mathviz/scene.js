@@ -16,6 +16,18 @@ export const IMAGE_CX = 240;
 export const IMAGE_CY = 240;
 export const F_DEFAULT = 500;          // FOV 51.28°
 
+// ---------- 두 데모가 공유하는 카메라 기본값 ----------
+/** 주 카메라 높이. 데모 1·2 모두 이 값으로 지면 위에 선다. */
+export const CAM_HEIGHT = 1.6;
+/**
+ * 기본 pitch. 데모 1 기준: (d, yaw, pitch) = (6, 0, -7.5946°) 가
+ * eye=(0,-6,1.6), target=(0,0,0.8) 다.
+ *
+ * ⚠️ 두 데모가 각자 상수를 들고 있으면 동기화 위험이다 — 데모 1의 dolly zoom
+ * 스냅백이 이 값에 묶여 있다. 여기 하나만 둔다.
+ */
+export const PITCH0 = -7.5946 * Math.PI / 180;
+
 /**
  * 이미지 뷰의 world. 사방 25% 여백 — 소실점이 이미지 밖에 있는 게 정상이다.
  *

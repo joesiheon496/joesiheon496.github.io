@@ -11,6 +11,7 @@ import {
 } from './camera.js';
 import {
   OBS, SCENE_HOME, SCENE_WIDE, IMAGE_WORLD, IMAGE_SIZE, IMAGE_CX, IMAGE_CY, F_DEFAULT,
+  CAM_HEIGHT, PITCH0,
   GROUND_LINES, BOX_EDGES, PILLARS, PILLAR_FEET,
   drawPolys, frustumPolys, axisPoly,
 } from './scene.js';
@@ -19,9 +20,6 @@ import {
   makeSliders, makeToggles, attachDrag,
 } from './core.js';
 
-const CAM_HEIGHT = 1.6;
-/** 기본값. (d, yaw, pitch) = (6, 0, -7.5946°) 가 eye=(0,-6,1.6), target=(0,0,0.8) 다. */
-const PITCH0 = -7.5946 * Math.PI / 180;
 const DIST0 = 6;
 
 /**

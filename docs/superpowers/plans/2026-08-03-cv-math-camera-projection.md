@@ -532,10 +532,26 @@ test('projectPolyline: 근평면을 지나는 폴리라인이 조각으로 나�
     assert.ok(run.length >= 2, '조각마다 점이 둘 이상');
     for (const [u, v] of run) {
       assert.ok(Number.isFinite(u) && Number.isFinite(v), `유한해야 한다: ${u},${v}`);
-      // 클리핑을 안 하면 뒤집힌 좌표가 수만 px 로 튄다
-      assert.ok(Math.abs(u) < 1e5 && Math.abs(v) < 1e5, `튀지 않아야 한다: ${u},${v}`);
     }
   }
+
+  // 🔑 클리핑이 고치는 것은 좌표의 **크기**가 아니라 **방향**이다.
+  //
+  // 근평면에서 자른 점은 깊이가 정확히 NEAR(1e-3) 이므로 u = cx + f·Xc/Zc 에서
+  // v 가 55만 px 로 커지는 것이 **정상이다.** 그 선은 실제로 이미지에서 무한을 향해
+  // 물러나므로 캔버스가 알아서 자른다. 크기 상한(|v| < 1e5)을 걸면 옳은 구현이 실패한다.
+  //
+  // 진짜 버그는 자르지 않았을 때 뒤쪽 점이 **반대편으로 뒤집혀** 화면을 가로지르는
+  // 선이 생기는 것이다. 그래서 뒤집힘을 직접 검사한다.
+  const vFront = projectPoint(cam, pts[0]).v;
+  const vClipped = runs[0][runs[0].length - 1][1];
+  const vNaive = projectPoint(cam, pts[1]).v;
+  close(vFront, 242.05, 1e-2, '앞 끝점 v');
+  close(vNaive, 132.93, 1e-2, '자르지 않은 뒤쪽 점 v (뒤집힌 값)');
+  assert.ok(vClipped > 1e5, `자른 점은 깊이가 NEAR 라 v 가 크다: ${vClipped}`);
+  assert.ok((vClipped - vFront) * (vNaive - vFront) < 0,
+    '자른 점과 자르지 않은 점은 앞 끝점 기준 반대편이어야 한다 — '
+    + `그게 클리핑이 막는 버그다 (clipped ${vClipped}, naive ${vNaive})`);
 
   // 전부 앞이면 한 조각, 점 개수 유지
   const allFront = projectPolyline(cam, [[0, 2, 0], [1, 3, 0], [2, 4, 0]]);

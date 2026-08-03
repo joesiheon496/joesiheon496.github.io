@@ -73,3 +73,46 @@ export function lookAt({ eye, target, up }) {
 export function cameraCenter({ R, t }) {
   return scale(matVec(transpose(R), t), -1);
 }
+
+// ---------- 내부 파라미터 ----------
+
+/** 화소 단위 초점거리 f, 주점 (cx, cy). 종횡비와 skew 는 다루지 않는다 (6편 범위 밖). */
+export const intrinsics = ({ f, cx, cy }) => [[f, 0, cx], [0, f, cy], [0, 0, 1]];
+
+/** 화각. size 는 이미지 한 변의 화소 수. 반환은 라디안. */
+export const fovFromF = ({ f, size }) => 2 * Math.atan(size / (2 * f));
+export const fFromFov = ({ fov, size }) => size / (2 * Math.tan(fov / 2));
+
+// ---------- 투영 ----------
+
+/**
+ * 월드 점 X → 이미지 (u,v) 와 카메라 깊이 z.
+ *
+ * ⚠️ z ≤ 0 이면 점이 카메라 뒤에 있고 u,v 는 무한을 거쳐 뒤집힌 쓰레기값이다.
+ * 부르는 쪽이 z 를 보고 판단해야 한다. 선분을 그릴 때는 clipSegmentNear 를 쓴다.
+ */
+export function projectPoint({ K, R, t }, X) {
+  const Xc = add(matVec(R, X), t);
+  const p = matVec(K, Xc);
+  return { u: p[0] / p[2], v: p[1] / p[2], z: Xc[2] };
+}
+
+/** P = K[R|t], 3×4. */
+export function cameraMatrix({ K, R, t }) {
+  const KR = matMul(K, R);
+  const Kt = matVec(K, t);
+  return KR.map((row, i) => [...row, Kt[i]]);
+}
+
+/**
+ * 이미지 점 (u,v) 를 지면(Z=0)으로 되쏜다. 데모의 드래그가 쓴다.
+ * 광선이 지면과 평행하거나 카메라 뒤에서 만나면 null.
+ */
+export function groundFromImage({ K, R, t }, [u, v]) {
+  const C = cameraCenter({ R, t });
+  const d = matVec(transpose(R), matVec(inv3(K), [u, v, 1]));
+  if (Math.abs(d[2]) < 1e-12) return null;
+  const s = -C[2] / d[2];
+  if (s <= 0) return null;
+  return add(C, scale(d, s));
+}

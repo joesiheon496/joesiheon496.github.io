@@ -5,6 +5,7 @@ import {
   matMul, matVec, transpose, det3, inv3,
   rotX, rotY, rotZ, lookAt, cameraCenter,
   intrinsics, fovFromF, fFromFov, projectPoint, cameraMatrix, groundFromImage,
+  NEAR, depthOf, clipSegmentNear, projectPolyline,
 } from '../../static/js/mathviz/camera.js';
 
 const TOL = 1e-9;
@@ -179,4 +180,83 @@ test('groundFromImage: 지면점 → 이미지 → 지면점 왕복, 지평선 �
   // 지평선 위(하늘)를 클릭하면 지면과 만나지 않는다
   const level = { K: K0(), ...lookAt({ eye: [0, -6, 1.6], target: [0, 1, 1.6], up: [0, 0, 1] }) };
   assert.equal(groundFromImage(level, [CX, 10]), null, '지평선 위는 null');
+});
+
+test('clipSegmentNear: 앞앞은 그대로, 뒤뒤는 null, 앞뒤는 근평면에서 자른다', () => {
+  const cam = BASE();
+  const A = [0, 2, 0.5], B = [0, -20, 0.5];
+  close(depthOf(cam, A), 8.0752, 1e-4, 'za');
+  close(depthOf(cam, B), -13.7318, 1e-4, 'zb');
+
+  // 둘 다 앞
+  const both = clipSegmentNear([0, 2, 0.5], [0, 4, 0.5], cam);
+  assert.deepEqual(both, { a: [0, 2, 0.5], b: [0, 4, 0.5] }, '앞앞은 원본 그대로');
+
+  // 둘 다 뒤
+  assert.equal(clipSegmentNear([0, -30, 0], [0, -40, 0], cam), null, '뒤뒤는 null');
+
+  // 앞뒤 — 자른 점의 깊이가 정확히 NEAR
+  const cut = clipSegmentNear(A, B, cam);
+  assert.notEqual(cut, null);
+  closeVec(cut.a, A, TOL, '앞 끝점은 그대로');
+  close(depthOf(cam, cut.b), NEAR, 1e-12, '자른 점 깊이');
+
+  // 뒤앞 (순서 반대) — 자른 쪽이 a 가 된다
+  const rev = clipSegmentNear(B, A, cam);
+  close(depthOf(cam, rev.a), NEAR, 1e-12, '반대 순서에서 자른 점 깊이');
+  closeVec(rev.b, A, TOL, '반대 순서의 앞 끝점');
+});
+
+test('clipSegmentNear: 자른 점은 원래 선분 위에 있다', () => {
+  const cam = BASE();
+  const A = [0, 2, 0.5], B = [0, -20, 0.5];
+  const cut = clipSegmentNear(A, B, cam);
+  // 공선성: (B-A) × (cut-A) = 0
+  close(norm(cross(sub(B, A), sub(cut.b, A))), 0, 1e-9, '공선성');
+  closeVec(cut.b, [0, -6.145658, 0.5], 1e-6, '자른 점 실측값');
+});
+
+test('projectPolyline: 근평면을 지나는 폴리라인이 조각으로 나뉜다', () => {
+  const cam = BASE();
+  // 앞 → 뒤 → 앞. 가운데 점이 카메라 뒤라 두 조각이 나와야 한다.
+  const pts = [[0, 2, 0.5], [0, -20, 0.5], [0, 2, 1.5]];
+  const runs = projectPolyline(cam, pts);
+  assert.equal(runs.length, 2, '두 조각으로 나뉜다');
+  for (const run of runs) {
+    assert.ok(run.length >= 2, '조각마다 점이 둘 이상');
+    for (const [u, v] of run) {
+      assert.ok(Number.isFinite(u) && Number.isFinite(v), `유한해야 한다: ${u},${v}`);
+    }
+  }
+
+  // 🔑 클리핑이 고치는 것은 좌표의 **크기**가 아니라 **방향**이다.
+  //
+  // 근평면에서 자른 점은 깊이가 정확히 NEAR(1e-3) 이므로 u = cx + f·Xc/Zc 에서
+  // v 가 55만 px 로 커지는 것이 **정상이다.** 그 선은 실제로 이미지에서 무한을 향해
+  // 물러나므로 캔버스가 알아서 자른다. 크기 상한(|v| < 1e5)을 걸면 옳은 구현이 실패한다.
+  //
+  // 진짜 버그는 자르지 않았을 때 뒤쪽 점이 **반대편으로 뒤집혀** 화면을 가로지르는
+  // 선이 생기는 것이다. 그래서 뒤집힘을 직접 검사한다.
+  const vFront = projectPoint(cam, pts[0]).v;
+  const vClipped = runs[0][runs[0].length - 1][1];
+  const vNaive = projectPoint(cam, pts[1]).v;
+  close(vFront, 242.05, 1e-2, '앞 끝점 v');
+  close(vNaive, 132.93, 1e-2, '자르지 않은 뒤쪽 점 v (뒤집힌 값)');
+  assert.ok(vClipped > 1e5, `자른 점은 깊이가 NEAR 라 v 가 크다: ${vClipped}`);
+  assert.ok((vClipped - vFront) * (vNaive - vFront) < 0,
+    '자른 점과 자르지 않은 점은 앞 끝점 기준 반대편이어야 한다 — '
+    + `그게 클리핑이 막는 버그다 (clipped ${vClipped}, naive ${vNaive})`);
+
+  // 전부 앞이면 한 조각, 점 개수 유지
+  const allFront = projectPolyline(cam, [[0, 2, 0], [1, 3, 0], [2, 4, 0]]);
+  assert.equal(allFront.length, 1);
+  assert.equal(allFront[0].length, 3);
+
+  // 전부 뒤면 빈 배열
+  assert.deepEqual(projectPolyline(cam, [[0, -30, 0], [1, -35, 0]]), []);
+
+  // closed: 마지막→처음 변까지 그린다
+  const sq = [[-1, 2, 0], [1, 2, 0], [1, 4, 0], [-1, 4, 0]];
+  assert.equal(projectPolyline(cam, sq, { closed: true })[0].length, 5, '닫으면 점이 하나 늘어난다');
+  assert.equal(projectPolyline(cam, sq)[0].length, 4, '열면 그대로');
 });

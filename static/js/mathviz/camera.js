@@ -116,3 +116,58 @@ export function groundFromImage({ K, R, t }, [u, v]) {
   if (s <= 0) return null;
   return add(C, scale(d, s));
 }
+
+// ---------- 근평면 클리핑 ----------
+
+/**
+ * 근평면. 이보다 얕은 깊이는 그리지 않는다.
+ *
+ * 왜 필요한가: 깊이 ≤ 0 인 점을 투영하면 무한을 거쳐 뒤집힌 좌표가 나온다.
+ * 한 끝점만 앞인 모서리를 그냥 이으면 화면을 가로지르는 엉뚱한 선이 생긴다.
+ * 카메라를 지면 격자 안으로 끌면 반드시 걸린다.
+ */
+export const NEAR = 1e-3;
+
+export const depthOf = ({ R, t }, X) => add(matVec(R, X), t)[2];
+
+/**
+ * 선분을 근평면에서 자른다. 반환은 3D 끝점 — 투영은 부르는 쪽이 한다.
+ * 둘 다 뒤면 null.
+ */
+export function clipSegmentNear(Xa, Xb, cam, near = NEAR) {
+  const za = depthOf(cam, Xa), zb = depthOf(cam, Xb);
+  if (za < near && zb < near) return null;
+  if (za >= near && zb >= near) return { a: Xa, b: Xb };
+  const s = (near - za) / (zb - za);
+  const cut = add(Xa, scale(sub(Xb, Xa), s));
+  return za >= near ? { a: Xa, b: cut } : { a: cut, b: Xb };
+}
+
+const same3 = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-12);
+
+/**
+ * 3D 폴리라인을 클리핑해서 투영한다. 반환은 폴리라인들의 배열 —
+ * 근평면에 잘리면 조각이 여러 개 나온다.
+ *
+ * 데모의 모든 3D 선은 이 함수를 지나야 한다.
+ */
+export function projectPolyline(cam, pts, { closed = false } = {}) {
+  const n = pts.length;
+  const last = closed ? n : n - 1;
+  const out = [];
+  let run = null, runEnd = null;
+
+  for (let i = 0; i < last; i++) {
+    const seg = clipSegmentNear(pts[i], pts[(i + 1) % n], cam);
+    if (!seg) { run = null; runEnd = null; continue; }
+    const a = projectPoint(cam, seg.a), b = projectPoint(cam, seg.b);
+    if (run && runEnd && same3(runEnd, seg.a)) {
+      run.push([b.u, b.v]);
+    } else {
+      run = [[a.u, a.v], [b.u, b.v]];
+      out.push(run);
+    }
+    runEnd = seg.b;
+  }
+  return out;
+}

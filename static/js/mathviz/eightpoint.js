@@ -201,10 +201,14 @@ export function init(root) {
       ctx1.strokeStyle = c.bg; ctx1.lineWidth = 1.5; ctx1.stroke();
     });
 
+    // ⚠️ 정답 F 의 직선을 c.grid 로 그리면 **지면 격자와 구별되지 않는다.** 초판이
+    // 그랬고, 그러면 독자가 격자선을 에피폴라 직선으로 읽어 방향이 엉뚱해 보인다
+    // (배포 후 실제로 그 보고를 받았다). 정답은 accent3, 복원은 accent 로 갈라 둔다 —
+    // 두 색이 벌어진 폭이 곧 추정 오차다.
     draw.forEach(([a], i) => {
       if (showTruth) {
         const t = clipLine(epipolarLineInSecond(Ftrue, clean[i][0]));
-        if (t) drawPath(ctx2, view2, t, { color: c.grid, width: 2 });
+        if (t) drawPath(ctx2, view2, t, { color: c.accent3, width: 2.2 });
       }
       const h = clipLine(epipolarLineInSecond(Fhat, a));
       if (h) drawPath(ctx2, view2, h, { color: c.accent, width: 1.8 });

@@ -153,20 +153,26 @@ export function init(root) {
     const ctx2 = canvas2.getContext('2d');
 
     // --- 직선 다발: 여러 점의 에피폴라 직선이 에피폴에서 만난다 ---
+    //
+    // ⚠️ 에피폴라 직선은 **지면 격자와 다른 색**이어야 한다. 초판은 둘 다 c.grid 였고,
+    // 그러면 격자선과 에피폴라 직선이 구별되지 않는다. 격자는 격자 자신의 소실점으로
+    // 모이고 에피폴라 직선은 에피폴로 모이므로, 섞이면 독자가 격자선을 에피폴라
+    // 직선으로 읽고 "직선이 엉뚱한 방향" 이라고 판단한다. 실제 배포 후 그 보고를 받았다.
     if (bundle) {
       for (const X of BUNDLE) {
         const p1 = projectPoint(cam1, X), p2 = projectPoint(cam2, X);
         if (p1.z <= 0 || p2.z <= 0) continue;
         const seg = clipLine(epipolarLineInSecond(F, [p1.u, p1.v]));
-        if (seg) drawPath(ctx2, view2, seg, { color: c.grid, width: 1 });
+        if (seg) drawPath(ctx2, view2, seg, { color: c.accent3, width: 1.4 });
         if (bothWays) {
           const s1 = clipLine(epipolarLineInFirst(F, [p2.u, p2.v]));
-          if (s1) drawPath(ctx1, view1, s1, { color: c.grid, width: 1 });
+          if (s1) drawPath(ctx1, view1, s1, { color: c.accent3, width: 1.4 });
         }
+        // 다발의 기준점은 자기 직선과 같은 색으로 — 어느 점이 어느 직선인지 이어보인다
         for (const [ctx, view, p] of [[ctx1, view1, p1], [ctx2, view2, p2]]) {
           const [x, y] = view.toPixel([p.u, p.v]);
-          ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-          ctx.fillStyle = c.muted; ctx.fill();
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+          ctx.fillStyle = c.accent3; ctx.fill();
         }
       }
     }

@@ -38,6 +38,10 @@
 .mv-readout { font-size: .85rem; line-height: 1.7; }
 .mv-readout .ok { color: #55a868; font-weight: 600; }
 .mv-readout .no { color: #c44e52; font-weight: 600; }
+/* 8편 추가. ok/no 가 accent3/accent2 와 같은 색이라 파랑(accent)만 없었다.
+   범례 표식과 단서용 — 기존 마크업은 이 클래스를 쓰지 않으므로 재스타일 없음. */
+.mv-readout .hi { color: #4c72b0; font-weight: 600; }
+.mv-readout .mv-note { color: var(--secondary); font-weight: 400; }
 .mv-hint { font-size: .8rem; color: var(--secondary); margin-top: .5rem; line-height: 1.6; }
 
 /* 2패널 데모 (6편). 패널마다 캔버스가 하나라 createView/attachDrag 를 그대로 쓴다. */

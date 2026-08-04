@@ -319,23 +319,44 @@ test('§2-7 멀어지면 최장축이 시선과 정렬한다', () => {
 
 // ================= §2-8. 🔑 κ 가 6만 배 커져도 GN 스텝은 1→3 =================
 
-test('§2-8 κ 를 6만 배 키워도 GN 은 3 스텝, 경사하강은 수십만 스텝', () => {
+test('§2-8 κ 가 35000배 커지는 동안 GN 스텝은 3 에서 꼼짝하지 않는다', () => {
   const { cam1, cam2 } = stereo(4);
   const kappas = [];
-  for (const dist of [2, 32, 512]) {
+  for (const dist of [2, 8, 32, 128, 512]) {
     const X = pointAt(cam1, cam2, dist);
     const rand = makeRng(77);
     const [x1, x2] = noisy(cam1, cam2, X, 1, rand);
     const d = triangulateDLT(cam1, cam2, x1, x2);
     const g = triangulateGN(cam1, cam2, x1, x2, d.X);
     kappas.push(g.kappa);
-    assert.ok(g.iters <= 3, `거리 ${dist} m 에서 GN ${g.iters} 스텝`);
+    // 이 데모의 핵심 주장 — 등호다, 부등호가 아니다
+    assert.equal(g.iters, 3, `거리 ${dist} m 에서 GN ${g.iters} 스텝`);
     assert.ok(!g.diverged);
   }
-  // κ 가 1.6 → 5e4 로 커진다 (4자리)
-  assert.ok(kappas[0] < 3, `가까운 곳 κ=${kappas[0]}`);
-  assert.ok(kappas[2] > 3e4, `먼 곳 κ=${kappas[2]}`);
-  assert.ok(kappas[2] / kappas[0] > 1e4, `κ 배율 ${kappas[2] / kappas[0]}`);
+  close(kappas[0], 1.596, 1e-2, '거리 2 m 의 κ');
+  close(kappas[4], 5.643e4, 1e2, '거리 512 m 의 κ');
+  assert.ok(kappas[4] / kappas[0] > 3e4, `κ 배율 ${kappas[4] / kappas[0]}`);
+});
+
+test('§2-8 같은 문제에서 경사하강은 8 → 739353 회로 늘어난다', () => {
+  const { cam1, cam2 } = stereo(4);
+  const measured = [2, 8, 32].map((dist) => {
+    const X = pointAt(cam1, cam2, dist);
+    const rand = makeRng(77);
+    const [x1, x2] = noisy(cam1, cam2, X, 1, rand);
+    const X0 = triangulateDLT(cam1, cam2, x1, x2).X;
+    const star = triangulateGN(cam1, cam2, x1, x2, X0, { maxIter: 80 }).X;
+    // 1e-9 상대거리 도달까지 — 512 m 는 74만 회라 테스트에서 32 m 까지만 센다
+    let hit = Infinity;
+    for (const budget of [8, 190, 2751]) {
+      const gd = descentPath(cam1, cam2, x1, x2, X0, { steps: budget });
+      if (norm(sub(gd.X, star)) < 1e-9 * Math.max(1, norm(star))) { hit = budget; break; }
+    }
+    return { dist, hit };
+  });
+  assert.equal(measured[0].hit, 8, '거리 2 m 는 8 스텝');
+  assert.equal(measured[1].hit, 190, '거리 8 m 는 190 스텝');
+  assert.equal(measured[2].hit, 2751, '거리 32 m 는 2751 스텝');
 });
 
 test('§2-8 경사하강은 같은 예산에서 GN 을 따라가지 못한다', () => {

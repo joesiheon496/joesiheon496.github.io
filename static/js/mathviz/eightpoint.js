@@ -1,9 +1,11 @@
 // static/js/mathviz/eightpoint.js
 // 데모 2 — 8점으로 F 를 패기.
 //
-// 왼쪽: 카메라 1 이미지. 깨끗한 대응 8점(연한)과 알고리즘이 실제로 받은 잡음 섞인
-// 입력(진한)을 같이 보여준다. 오른쪽: 복원한 F̂ 의 에피폴라 직선(진한)과 정답 F 의
-// 직선(연한)을 겹친다 — 벌어진 폭이 추정 오차다.
+// 왼쪽: 카메라 1 이미지. 깨끗한 대응 8점(옅은 점)과 알고리즘이 실제로 받은 잡음 섞인
+// 입력(청색 점)을 같이 보여준다. 오른쪽: 복원한 F̂ 의 에피폴라 직선(청색)과 정답 F 의
+// 직선(녹색)을 겹친다 — 벌어진 폭이 추정 오차다.
+//
+// ⚠️ 에피폴라 직선을 지면 격자와 같은 색으로 그리면 안 된다. 스펙 §3-7
 //
 // 존재 이유는 `정규화` × `배치` 조합이다. 스펙 §2-7: 조건수는 정규화로 항상 2000배
 // 넘게 좋아지는데 **정확도 이득은 배치가 정한다** — 전진 배치 1.2배, 좌우 스테레오
@@ -79,7 +81,14 @@ export function init(root) {
   const readout = root.querySelector('.mv-readout');
   const hint = root.querySelector('.mv-hint');
 
-  const state = { sigma: 0.5, layout: 'forward' };
+  // 🔑 데모 2 의 기본 배치는 **좌우 스테레오**다. 데모 1 과 다르다.
+  //
+  // 데모 1 은 에피폴이 화면 안에 있어야 해서 전진 배치를 쓰는데, 전진은 카메라 2 가
+  // 두 배 가까워서 박스가 70 px 대 153 px 로 보인다 — 두 패널이 같은 장면으로 안 보인다
+  // (배포 후 그 보고를 받았다). 데모 2 는 에피폴이 보일 필요가 없다. cond(A) 와 기하
+  // 오차가 주제이므로 스테레오로 두면 박스 배율이 1.00 이고 두 패널이 짝으로 읽힌다.
+  // 게다가 정규화 효과가 4\~5배로 더 크게 드러나서 이 데모의 논지에 오히려 맞다.
+  const state = { sigma: 0.5, layout: 'stereo' };
   let seed = 7;
   let toggles;
 
@@ -96,7 +105,7 @@ export function init(root) {
   makeRadios(sliderHost, {
     key: 'layout',
     label: '배치',
-    value: 'forward',
+    value: 'stereo',
     options: Object.entries(LAYOUTS).map(([value, l]) => ({ value, label: l.label })),
   }, (v) => { Object.assign(state, v); render(); });
 

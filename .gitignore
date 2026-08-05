@@ -7,5 +7,8 @@
 .DS_Store
 Thumbs.db
 
+# Python (tools/ 의 측정 스크립트)
+__pycache__/
+
 # SDD 작업공간 (계획별 scratch — 커밋 대상 아님)
 /.superpowers/

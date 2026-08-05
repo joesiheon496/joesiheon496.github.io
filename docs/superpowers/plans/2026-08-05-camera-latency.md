@@ -2,23 +2,28 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 카메라 지연을 아홉 단계 예산으로 쪼개고, 그중 네 구간을 이 기계에서 직접 재서 `content/posts/camera-latency/index.md` 글로 낸다.
+**Goal:** 카메라 지연을 아홉 단계 예산으로 쪼개고, **그중 세 구간**(인코딩·지터버퍼·수신 버퍼)을 이 기계에서 직접 재서 `content/posts/camera-latency/index.md` 글로 낸다. 나머지 여섯 칸은 문헌 인용이고, 그 사실을 숨기지 않는 것이 이 글의 조건이다.
 
-**Architecture:** 측정이 먼저다. `tools/camera-latency/` 의 독립 스크립트 네 개가 각각 JSON 을 뱉고, 그 JSON 만이 글과 그림의 입력이 된다. 스크립트 → JSON → 그림 → 글의 단방향 흐름이라 숫자의 출처가 한 곳으로 고정된다. 측정이 스펙의 가설을 반증하면 Task 5 에서 축을 교체하고, 그 뒤에 글을 쓴다.
+**Architecture:** 측정이 먼저다. `tools/camera-latency/` 의 독립 스크립트들이 각각 JSON 을 뱉고, 그 JSON 만이 글과 그림의 입력이 된다. 스크립트 → JSON → 그림 → 글의 단방향 흐름이라 숫자의 출처가 한 곳으로 고정된다. 측정이 스펙의 가설을 반증하면 Task 5 에서 축을 교체하고, 그 뒤에 글을 쓴다.
 
-**Tech Stack:** Python (conda env `camera`: pyrealsense2 2.56.5.9235, PyAV 17.0.0, opencv-contrib-python 4.10.0.84, numpy 2.2.6, matplotlib 3.10.8) · ffmpeg (`ros_env`) · Hugo + PaperMod
+> 🚫 **2026-08-05 — 카메라(D455)를 쓰지 않기로 했다.** 원래 Task 1 이던 센서→호스트 실측이
+> 취소되고 스펙 §2-E(재지 않은 것)로 내려갔다. 그 결과 축의 뒷문장("카메라·회선이 아니라
+> 가장 크다")을 **쓸 수 없게 됐다** — 재지 않은 것과 비교할 수 없기 때문이다. 스펙 §1 에
+> 대체 축을 적었고, Task 4 의 지터 분포 입력도 센서에서 파이프라인 실측으로 바꿨다.
+
+**Tech Stack:** Python (conda env `camera`: PyAV 17.0.0, opencv-contrib-python 4.10.0.84, numpy 2.2.6, matplotlib 3.10.8) · ffmpeg (`ros_env`) · Hugo + PaperMod. **카메라는 쓰지 않는다** — 스펙 §2-A 취소.
 
 ## Global Constraints
 
 스펙 `docs/superpowers/specs/2026-08-05-camera-latency-design.md` 의 프로젝트 전역 요구사항이다. **모든 태스크의 요구사항에 이것이 암묵적으로 포함된다.**
 
-- **파이썬 인터프리터는 항상 `C:\Users\a\anaconda3\envs\camera\python.exe`** 다. `python` 을 그냥 호출하면 base 환경이고 거기에는 cv2·PyAV·pyrealsense2 가 없다.
+- **파이썬 인터프리터는 항상 `C:\Users\a\anaconda3\envs\camera\python.exe`** 다. `python` 을 그냥 호출하면 base 환경이고 거기에는 cv2 도 PyAV 도 없다.
 - **ffmpeg 은 `C:\Users\a\anaconda3\envs\ros_env\Library\bin\ffmpeg.exe`** 다. PATH 에 없다.
 - **절대 ms 를 본문 주장으로 쓰지 않는다.** 배율과 프레임 수만 쓴다. 표에는 절대값을 실어도 되지만 환경 블록을 함께 둔다.
 - **실측과 문헌 인용을 구분 표기한다.** 표에서는 열을 나누고, 그림에서는 색을 나누고 범례에 적는다.
 - **측정하지 못한 것은 "재지 않았다" 로 명시한다.** "안 나왔다" 가 아니라 "이 방법으로는 볼 수 없다" 로 쓴다.
 - **Hugo 표기 규약:** 물결표는 `\~`, 인라인 수식은 `\(...\)`, 블록 수식은 `\[...\]`, 이미지는 `{{< img src="..." alt="..." caption="..." >}}`, 다른 글 링크는 `{{< ref "/posts/network-traffic-check" >}}`.
-- **front matter:** `categories = ["기타"]`, `draft = false`, `math = true`, `tags` 에 `["카메라", "지연", "latency", "RealSense", "OpenCV", "FFmpeg", "H.264"]`.
+- **front matter:** `categories = ["기타"]`, `draft = false`, `math = true`, `tags` 에 `["카메라", "지연", "latency", "OpenCV", "FFmpeg", "H.264"]`. RealSense 는 쓰지 않았으므로 태그에 넣지 않는다.
 - **모든 난수는 시드 고정.** `numpy.random.default_rng(20260805)`.
 - **모든 스크립트는 JSON 을 `tools/camera-latency/results/` 에 쓴다.** 글과 그림은 이 JSON 만 읽는다.
 - **UB·구현 세부는 규칙처럼 쓰지 않는다.** OpenCV 버전·백엔드 이름, x264 기본값은 관측한 버전을 붙인다.
@@ -27,239 +32,61 @@
 
 ---
 
-### Task 1: 측정 하네스와 D455 센서→호스트 지연 (스펙 §2-A)
+### Task 1: 측정 하네스 ✅ 완료
+
+> 🚫 **원래 이 태스크는 D455 센서→호스트 지연 실측(스펙 §2-A)이었다. 2026-08-05 취소됐다** —
+> 사용자가 카메라를 연결하지 않기로 했다. `measure_sensor.py` 와 `results/sensor.json` 은
+> 만들지 않는다. 센서 구간은 스펙 §2-E(재지 않은 것)로 내려갔고, §1 의 축도 그에 맞춰
+> 좁혀졌다. 남은 것은 하네스뿐이고, 그건 이미 끝났다(`c743e02`).
 
 **Files:**
-- Create: `tools/camera-latency/common.py`
-- Create: `tools/camera-latency/measure_sensor.py`
-- Create: `tools/camera-latency/results/` (디렉터리, `.gitkeep`)
-- Create: `tools/camera-latency/results/sensor.json` (스크립트 출력, 커밋한다)
+- Create: `tools/camera-latency/common.py` ✅
+- Create: `tools/camera-latency/results/.gitkeep` ✅
 
 **Interfaces:**
 - Consumes: 없음 (첫 태스크)
-- Produces:
-  - `common.py`: `write_result(name: str, payload: dict) -> Path` — `results/<name>.json` 에 `{"env": {...}, "data": payload}` 를 UTF-8 로 쓰고 경로를 돌려준다. `env_block() -> dict` — 플랫폼·패키지 버전 딕셔너리. `percentile(xs: list[float], q: float) -> float` — 최근접 순위 백분위(선형보간 아님).
-  - `results/sensor.json` 의 `data` 스키마: `{"metadata_supported": {str: bool}, "timestamp_domain": str, "global_time_enabled": bool, "exposure_option_range": {"min": float, "max": float, "step": float}, "runs": [{"width": int, "height": int, "fps": int, "exposure_us": float|null, "auto_exposure": bool, "n": int, "arrival_lag_ms": {"median": float, "p99": float}|null, "interval_ms": {"median": float, "std": float, "p99": float}, "actual_exposure_us": float|null}], "refutation_2a": {"passed": bool, "note": str}}`
+- Produces: `common.py`
+  - `write_result(name: str, payload: dict) -> Path` — `results/<name>.json` 에
+    `{"env": {...}, "data": payload}` 를 UTF-8 로 쓰고 경로를 돌려준다
+  - `env_block() -> dict` — 플랫폼·패키지 버전. `__version__` 이 없는 패키지는
+    배포 메타데이터로 내려간다 (pyrealsense2 가 그렇다)
+  - `percentile(xs, q: float) -> float` — 최근접 순위. 실측에 없는 값이 표에 찍히지
+    않도록 보간하지 않는다
 
-- [ ] **Step 1: 하네스를 쓴다 (`common.py`)**
+- [x] **Step 1: 하네스를 쓴다 (`common.py`)** — 완료
+- [x] **Step 2: 하네스가 도는지 확인한다** — 완료
 
-```python
-"""camera-latency 측정 스크립트가 공유하는 것들.
-
-숫자의 출처를 한 곳으로 고정하기 위해, 모든 측정은 results/<name>.json 으로만
-나간다. 글과 그림은 이 JSON 만 읽는다.
-"""
-import json
-import platform
-import sys
-from pathlib import Path
-
-RESULTS = Path(__file__).parent / "results"
-
-
-def env_block() -> dict:
-    """숫자를 인용할 때 반드시 함께 적는 것."""
-    env = {
-        "os": platform.platform(),
-        "python": sys.version.split()[0],
-    }
-    for mod, key in (("cv2", "opencv"), ("av", "pyav"),
-                     ("numpy", "numpy"), ("pyrealsense2", "pyrealsense2")):
-        try:
-            env[key] = __import__(mod).__version__
-        except Exception as exc:                      # 없으면 없다고 적는다
-            env[key] = f"unavailable: {exc.__class__.__name__}"
-    return env
-
-
-def percentile(xs, q: float) -> float:
-    """최근접 순위 백분위. 실측에 없는 값이 리포트에 찍히지 않게 보간하지 않는다."""
-    s = sorted(xs)
-    if not s:
-        raise ValueError("빈 표본에서 백분위를 낼 수 없다")
-    idx = max(0, min(len(s) - 1, int(-(-q * len(s) // 1)) - 1))
-    return float(s[idx])
-
-
-def write_result(name: str, payload: dict) -> Path:
-    RESULTS.mkdir(exist_ok=True)
-    path = RESULTS / f"{name}.json"
-    path.write_text(
-        json.dumps({"env": env_block(), "data": payload},
-                   ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    return path
-```
-
-- [ ] **Step 2: 하네스가 도는지 확인한다**
-
-Run:
 ```powershell
 & C:\Users\a\anaconda3\envs\camera\python.exe -c "import sys; sys.path.insert(0, 'tools/camera-latency'); import common; print(common.env_block()); print(common.percentile([1,2,3,4,5,6,7,8,9,10], 0.99))"
 ```
-Expected: 버전 딕셔너리가 찍히고 백분위가 `10.0`. (10 개 표본의 P99 는 최근접 순위로 최댓값이다.)
 
-- [ ] **Step 3: D455 가 붙었는지 확인한다**
+10 개 표본의 P99 는 최근접 순위로 최댓값(`10.0`)이다.
 
-Run:
-```powershell
-& C:\Users\a\anaconda3\envs\camera\python.exe -c "import pyrealsense2 as rs; print(len(list(rs.context().devices)))"
-```
-Expected: `1` 이상.
+⚠️ 이 검증에서 실제로 버그가 하나 잡혔다. 첫 판 `env_block()` 은 `module.__version__`
+만 읽어서, **설치돼 있고 import 도 되는 pyrealsense2 를 "unavailable" 로 기록**했다.
+모든 인용 숫자가 딸려 있는 환경 블록이 조용히 틀린 것이라 배포 메타데이터 폴백을
+넣었다. 이 글이 다루는 실패 양식 그대로다.
 
-**`0` 이면 여기서 멈추고 사용자에게 D455 연결을 요청한다.** 연결 없이 이 태스크를 진행하면 안 된다 — 스펙 §2-A 는 실측이 전제다. 사용자가 연결할 수 없다고 답하면 스펙 §2-A 를 §2-E(재지 않은 구간)로 내리고 그 사실을 스펙에 되적은 뒤 Task 2 로 넘어간다.
-
-- [ ] **Step 4: 측정 스크립트를 쓴다 (`measure_sensor.py`)**
-
-```python
-"""스펙 §2-A — D455 센서 타임스탬프에서 호스트 도착까지.
-
-핵심 주의(스펙 §3-2): 카메라와 호스트는 서로 다른 시계다. global_time_enabled 를
-켜면 SDK 가 프레임 타임스탬프를 호스트 시계 도메인으로 옮겨주고, 그때만 절대
-단방향 지연을 말할 수 있다. 못 켜지면 상대 비교만 하고 그렇게 적는다.
-"""
-import sys
-import time
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent))
-import numpy as np
-import pyrealsense2 as rs
-from common import percentile, write_result
-
-WARMUP = 30
-N = 300
-MD = {
-    "sensor_timestamp": rs.frame_metadata_value.sensor_timestamp,
-    "frame_timestamp": rs.frame_metadata_value.frame_timestamp,
-    "time_of_arrival": rs.frame_metadata_value.time_of_arrival,
-    "actual_exposure": rs.frame_metadata_value.actual_exposure,
-    "frame_counter": rs.frame_metadata_value.frame_counter,
-}
-# 해상도·FPS 스윕은 노출 스윕과 교차하지 않는다 — 조건 수가 폭발한다.
-# 노출의 효과(반증 조건)를 848x480@30 에서 재고, 해상도·FPS 는 auto 노출로 훑는다.
-GEOM = [(424, 240, 30), (848, 480, 15), (848, 480, 30), (848, 480, 60), (1280, 720, 30)]
-EXPOSURES_US = [1000, 8000, 33000]
-
-
-def run_one(width, height, fps, exposure_us):
-    """한 조건에서 N 프레임을 받아 도착 지연과 프레임 간격을 돌려준다."""
-    pipe, cfg = rs.pipeline(), rs.config()
-    cfg.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
-    profile = pipe.start(cfg)
-    sensor = profile.get_device().first_color_sensor()
-
-    # 호스트 시계 도메인으로 옮긴다. 실패해도 계속하고 아래에서 도메인을 기록한다.
-    global_ok = True
-    try:
-        sensor.set_option(rs.option.global_time_enabled, 1)
-    except Exception:
-        global_ok = False
-
-    rng = sensor.get_option_range(rs.option.exposure)
-    if exposure_us is None:
-        sensor.set_option(rs.option.enable_auto_exposure, 1)
-        applied = None
-    else:
-        sensor.set_option(rs.option.enable_auto_exposure, 0)
-        applied = float(min(max(exposure_us, rng.min), rng.max))
-        sensor.set_option(rs.option.exposure, applied)
-
-    lags, stamps, actual, domain, supported = [], [], [], None, {}
-    try:
-        for i in range(WARMUP + N):
-            f = pipe.wait_for_frames().get_color_frame()
-            host_ms = time.perf_counter() * 1000.0
-            if i < WARMUP:
-                continue
-            if domain is None:
-                domain = str(f.get_frame_timestamp_domain())
-                supported = {k: bool(f.supports_frame_metadata(v))
-                             for k, v in MD.items()}
-            stamps.append(f.get_timestamp())          # ms
-            lags.append(host_ms - f.get_timestamp())  # 도메인이 같을 때만 의미 있다
-            if supported.get("actual_exposure"):
-                actual.append(float(f.get_frame_metadata(MD["actual_exposure"])))
-    finally:
-        pipe.stop()
-
-    intervals = list(np.diff(stamps))
-    # perf_counter 와 프레임 타임스탬프의 원점이 다르면 lag 의 절대값은 무의미하다.
-    # 원점 차이는 상수이므로, 조건 사이의 '차이' 는 여전히 읽을 수 있다.
-    absolute_ok = global_ok and "system_time" in (domain or "").lower()
-    return {
-        "width": width, "height": height, "fps": fps,
-        "exposure_us": exposure_us, "auto_exposure": exposure_us is None,
-        "applied_exposure_us": applied, "n": len(stamps),
-        "timestamp_domain": domain, "absolute_lag_meaningful": absolute_ok,
-        "arrival_lag_ms": {"median": float(np.median(lags)),
-                           "p99": percentile(lags, 0.99)},
-        "interval_ms": {"median": float(np.median(intervals)),
-                        "std": float(np.std(intervals)),
-                        "p99": percentile(intervals, 0.99)},
-        "actual_exposure_us": float(np.median(actual)) if actual else None,
-        "metadata_supported": supported,
-    }
-
-
-def main():
-    runs = [run_one(w, h, f, None) for (w, h, f) in GEOM]
-    runs += [run_one(848, 480, 30, e) for e in EXPOSURES_US]
-
-    # 반증 조건: 노출 1ms -> 33ms 에서 도착 지연이 노출 증가분(32ms)만큼 늘어나는가.
-    by_exp = {r["exposure_us"]: r for r in runs if r["exposure_us"] is not None}
-    lo, hi = by_exp.get(1000), by_exp.get(33000)
-    if lo and hi:
-        delta = hi["arrival_lag_ms"]["median"] - lo["arrival_lag_ms"]["median"]
-        expected = (33000 - 1000) / 1000.0
-        passed = delta >= 0.5 * expected
-        note = (f"노출 32ms 증가에 도착 지연 {delta:.1f}ms 증가 "
-                f"(기대 {expected:.1f}ms, 절반 이상이면 통과) -> "
-                f"{'통과' if passed else '반증: 노출이 지연에 직접 들어온다는 서술을 고쳐야 한다'}")
-    else:
-        passed, note = False, "노출 고정에 실패해 반증 조건을 평가할 수 없다"
-
-    path = write_result("sensor", {"runs": runs,
-                                   "refutation_2a": {"passed": passed, "note": note}})
-    print(note)
-    print(f"wrote {path}")
-
-
-if __name__ == "__main__":
-    main()
-```
-
-- [ ] **Step 5: 측정을 돌린다**
-
-Run:
-```powershell
-& C:\Users\a\anaconda3\envs\camera\python.exe tools/camera-latency/measure_sensor.py
-```
-Expected: 반증 조건 문장 한 줄과 `wrote ...\results\sensor.json`. 8 개 조건이 다 돈다.
-
-메타데이터가 `not supported` 로 막히거나 `timestamp_domain` 이 `hardware_clock` 이면 `absolute_lag_meaningful` 이 `false` 로 찍힌다. **그건 실패가 아니다** — 스펙 §2-A 가 예상한 경로다. 그 경우 조건 사이 **상대 비교**만 글에 쓰고, 절대 센서 지연은 §2-E 로 내린다.
-
-- [ ] **Step 6: 결과를 눈으로 확인한다**
-
-Run:
-```powershell
-& C:\Users\a\anaconda3\envs\camera\python.exe -c "import json; d=json.load(open('tools/camera-latency/results/sensor.json',encoding='utf-8'))['data']; print(d['refutation_2a']); [print(r['width'],r['height'],r['fps'],r['exposure_us'],r['timestamp_domain'],r['absolute_lag_meaningful'],round(r['arrival_lag_ms']['median'],2),round(r['interval_ms']['std'],2)) for r in d['runs']]"
-```
-Expected: 8 줄. `n` 이 300 이고, `interval_ms.median` 이 `1000/fps` 에 가까울 것. **`interval_ms.median` 이 `1000/fps` 와 10 % 이상 다르면 카메라가 요청한 FPS 를 못 내고 있다는 뜻이므로, 그 조건은 글에서 제외하거나 그 사실을 적는다.**
-
-- [ ] **Step 7: 커밋**
-
-```bash
-git add tools/camera-latency/common.py tools/camera-latency/measure_sensor.py tools/camera-latency/results/sensor.json
-git commit -m "feat(camera-latency): measure the D455 sensor-to-host arrival lag"
-```
+- [x] **Step 3: 커밋** — `c743e02`
 
 ---
 
-### Task 2: 인코더 구조적 지연 (스펙 §2-B)
+### Task 2: 인코더 구조적 지연 (스펙 §2-B) ✅ 완료 — `2771a55`
 
 이 글에서 **가장 인용 가치가 높은 값**을 만드는 태스크다. 삼킨 프레임 수는 기계에 독립이라 절대 시간 규칙(Global Constraints)의 예외다.
+
+> 🚨 **아래 조건 목록과 반증 논리는 실행해보니 무효였다. 실제 스크립트는 다르다** —
+> `tools/camera-latency/measure_encoder.py` 를 보라. 아래를 고쳐 쓰지 않고 남겨두는 것은
+> 무엇이 왜 틀렸는지가 이 계획의 기록이기 때문이다.
+>
+> 아래 목록에는 **`bf=0` 을 기본 lookahead 로 둔 대조군이 없다.** 그래서 `bf=3` 이 31 장을
+> 삼킨 것을 "B프레임이 구조적 지연" 으로 읽었는데, `bf=0` 도 31 장이고 `bf=16` 도 31 장이었다.
+> 세 원인(lookahead · B프레임 · 프레임 스레딩)이 분리되지 않아 반증 조건이 아무것도
+> 증명하지 못했다.
+>
+> 실제 스크립트는 각 원인마다 '그것만 끈' 짝을 넣어 12 조건으로 재고, 관측한 세 규칙이
+> 모든 조건에서 성립하는지 **스크립트가 직접 확인**한다(`rules_hold`). 결과는 스펙 §2-B 에
+> 적었다 — 지배 원인은 lookahead(30 프레임)이고 B프레임(3)의 10배다.
 
 **Files:**
 - Create: `tools/camera-latency/measure_encoder.py`
@@ -401,7 +228,13 @@ git commit -m "feat(camera-latency): count the frames an encoder swallows before
 
 ---
 
-### Task 3: 수신측 버퍼 누적 (스펙 §2-C)
+### Task 3: 수신측 버퍼 누적 (스펙 §2-C) ✅ 완료 — `756dc8b`
+
+> 실제 스크립트가 계획과 다른 점 둘. (1) `drawtext` burn-in 을 뺐다 — 읽으려면 OCR 이
+> 필요한데 드레인 판정은 OCR 없이 된다. (2) 1 초 간격 **시계열**을 남기도록 늘렸다 —
+> Task 6 의 `buffer-growth.png` 가 시계열을 필요로 하는데 두 단계 판정만으로는 그릴
+> 데이터가 없었다. 그 덕에 `CAP_PROP_POS_MSEC` 기반 지연과 프레임 결손 기반 예측을
+> 서로 맞춰보는 검증이 생겼다. 결과는 스펙 §2-C 에 적었다.
 
 **Files:**
 - Create: `tools/camera-latency/measure_buffer.py`
@@ -552,23 +385,111 @@ git commit -m "feat(camera-latency): decide whether a slow reader grows latency 
 
 ### Task 4: 지터버퍼 트레이드오프 (스펙 §2-D)
 
+> 🔁 **입력이 바뀌었다.** 원안은 `sensor.json` 의 프레임 간격 통계(중앙값·표준편차·P99)에서
+> 표본을 **합성**해 쓰려 했다. 2-A 취소로 그 파일이 없어졌고, 대신 2-C 의 송수신 경로에서
+> **실제 도착 시각을 찍어** 쓴다. 합성이 사라졌으므로 이쪽이 더 낫다 — 세 통계량만 맞춘
+> 가짜 표본 대신 실제 분포다.
+>
+> ⚠️ 다만 이 지터는 **인코더·UDP·디코더**의 것이고 **카메라의 것이 아니다.** 글에서
+> "이 파이프라인의 지터에서는" 으로 한정한다.
+
 **Files:**
+- Create: `tools/camera-latency/measure_arrival.py`
+- Create: `tools/camera-latency/results/arrival.json`
 - Create: `tools/camera-latency/compute_jitter.py`
 - Create: `tools/camera-latency/results/jitter.json`
 
 **Interfaces:**
-- Consumes: `results/sensor.json` (Task 1 의 `runs[*].interval_ms`), `common.write_result`
-- Produces: `results/jitter.json` 의 `data` 스키마: `{"source": str, "nominal_interval_ms": float, "n_samples": int, "curve": [{"buffer_ms": float, "added_latency_ms": float, "loss_rate": float}], "min_buffer_for_0p1pct_ms": float|null, "is_simulation": true}`
+- Consumes: `common.write_result`, `common.percentile` (Task 1). ffmpeg 송출 명령은 Task 3 의 `SENDER` 와 같다
+- Produces:
+  - `results/arrival.json` 의 `data`: `{"fps": int, "nominal_interval_ms": float, "backend": str, "warmup_dropped": int, "n": int, "arrival_ms": [float], "interval_ms": {"median": float, "std": float, "p99": float}, "consume_fps": float}`
+  - `results/jitter.json` 의 `data`: `{"source": str, "nominal_interval_ms": float, "n_samples": int, "curve": [{"buffer_ms": float, "added_latency_ms": float, "loss_rate": float}], "min_buffer_for_0p1pct_ms": float|null, "is_simulation": true}`
 
-⚠️ **이것은 실측 분포 + 계산이다.** JSON 에 `is_simulation: true` 가 박혀 있고, 글에도 "시뮬레이션" 이라고 쓴다 (Global Constraints).
+⚠️ 곡선은 **실측 분포 + 계산**이다. JSON 에 `is_simulation: true` 가 박혀 있고 글에도
+"시뮬레이션" 이라고 쓴다 (Global Constraints).
 
-- [ ] **Step 1: 계산 스크립트를 쓴다 (`compute_jitter.py`)**
+- [ ] **Step 1: 도착 시각을 찍는다 (`measure_arrival.py`)**
+
+```python
+"""스펙 §2-D 의 입력 — 이 파이프라인의 프레임 도착 지터.
+
+2-A(카메라 센서)가 취소되어 지터 분포의 출처가 여기로 바뀌었다. Task 3 과 같은
+ffmpeg -> UDP -> OpenCV 경로를 쓰되, 소비를 늦추지 않고 최대 속도로 받으며
+도착 시각만 찍는다. 늦게 읽으면 버퍼가 쌓여(2-C) 지터가 아니라 백로그를 재게 된다.
+
+송신과 수신이 같은 기계·같은 시계라 드리프트 보정이 필요 없다.
+"""
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+import cv2
+import numpy as np
+from common import percentile, write_result
+from measure_buffer import FFMPEG, FPS, SENDER, URL, open_capture
+
+SECONDS, WARMUP = 30.0, 30
+
+
+def main():
+    sender = subprocess.Popen(SENDER)
+    try:
+        time.sleep(2.0)
+        cap = open_capture()
+        backend = cap.getBackendName()
+        stamps = []
+        t0 = time.perf_counter()
+        while time.perf_counter() - t0 < SECONDS:
+            if cap.read()[0]:
+                stamps.append((time.perf_counter() - t0) * 1000.0)
+        cap.release()
+    finally:
+        sender.terminate()
+        sender.wait(timeout=10)
+
+    stamps = stamps[WARMUP:]                    # 스트림에 붙는 동안의 과도상태를 버린다
+    intervals = np.diff(stamps)
+    span_s = (stamps[-1] - stamps[0]) / 1000.0
+    path = write_result("arrival", {
+        "fps": FPS, "nominal_interval_ms": 1000.0 / FPS, "backend": backend,
+        "warmup_dropped": WARMUP, "n": len(stamps),
+        "arrival_ms": [round(s, 4) for s in stamps],
+        "interval_ms": {"median": float(np.median(intervals)),
+                        "std": float(np.std(intervals)),
+                        "p99": percentile(intervals, 0.99)},
+        "consume_fps": (len(stamps) - 1) / span_s,
+    })
+    print(f"{len(stamps)} 프레임, 소비 {(len(stamps)-1)/span_s:.2f} fps, "
+          f"간격 중앙값 {np.median(intervals):.2f} ms · P99 {percentile(intervals, 0.99):.2f} ms")
+    print(f"wrote {path}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+- [ ] **Step 2: 돌리고 소비가 안 밀렸는지 확인한다**
+
+Run:
+```powershell
+& C:\Users\a\anaconda3\envs\camera\python.exe tools/camera-latency/measure_arrival.py
+```
+
+Expected: `consume_fps` 가 30 에 가깝고 `interval_ms.median` 이 33.3 ms 근처.
+
+🚨 **`consume_fps` 가 30 보다 뚜렷이 낮으면 이 측정은 무효다.** 소비가 밀렸다는 뜻이고,
+그러면 재는 것이 지터가 아니라 2-C 의 백로그다. 그 경우 해상도를 낮추거나 디코드를
+가볍게 해서 다시 잰다.
+
+- [ ] **Step 3: 곡선을 계산한다 (`compute_jitter.py`)**
 
 ```python
 """스펙 §2-D — 지터버퍼 크기 b 대 (추가 지연, 유실률).
 
-입력은 §2-A 에서 실측한 프레임 간격 분포다. 버퍼 b 를 두면 재생 시각이
-b 만큼 뒤로 밀리고, 누적 도착 지연이 b 를 넘긴 프레임은 늦어서 버려진다.
+입력은 measure_arrival.py 가 찍은 실제 도착 시각이다. 버퍼 b 를 두면 재생 시각이
+b 만큼 뒤로 밀리고, 이상적 등간격보다 b 이상 늦게 온 프레임은 버려진다.
 실측 분포 + 계산이므로 is_simulation 을 박아둔다.
 """
 import json
@@ -580,46 +501,34 @@ import numpy as np
 from common import write_result
 
 HERE = Path(__file__).parent
-RUN_LABEL = (848, 480, 30)                            # 노출 auto, 대표 조건
-
-
-def arrival_offsets():
-    """실측 프레임 간격에서 '이상적 등간격 대비 누적 편차' 를 만든다."""
-    d = json.loads((HERE / "results" / "sensor.json").read_text(encoding="utf-8"))["data"]
-    run = next(r for r in d["runs"]
-               if (r["width"], r["height"], r["fps"]) == RUN_LABEL
-               and r["auto_exposure"])
-    nominal = 1000.0 / run["fps"]
-    # 간격의 중앙값·표준편차·P99 만 JSON 에 있으므로, 관측된 세 통계량을
-    # 재현하는 표본을 만든다 — 정규 + P99 를 맞춘 꼬리.
-    rng = np.random.default_rng(20260805)
-    n = run["n"]
-    iv = run["interval_ms"]
-    core = rng.normal(iv["median"], iv["std"], n)
-    tail = int(max(1, round(n * 0.01)))
-    core[rng.choice(n, tail, replace=False)] = iv["p99"]
-    return nominal, np.cumsum(core - nominal), int(n)
 
 
 def main():
-    nominal, offsets, n = arrival_offsets()
-    offsets = offsets - offsets.min()                  # 가장 이른 도착을 0 으로
+    d = json.loads((HERE / "results" / "arrival.json").read_text(encoding="utf-8"))["data"]
+    nominal = d["nominal_interval_ms"]
+    arrivals = np.array(d["arrival_ms"])
+    # 이상적 등간격 대비 편차. 가장 이른 도착을 0 으로 맞춘다.
+    ideal = arrivals[0] + np.arange(len(arrivals)) * nominal
+    offsets = arrivals - ideal
+    offsets = offsets - offsets.min()
+
     curve = []
-    for b in np.arange(0.0, 6.0 * nominal + 0.01, nominal / 4.0):
-        loss = float(np.mean(offsets > b))
+    for b in np.arange(0.0, 6.0 * nominal + 1e-9, nominal / 4.0):
         curve.append({"buffer_ms": float(b), "added_latency_ms": float(b),
-                      "loss_rate": loss})
+                      "loss_rate": float(np.mean(offsets > b))})
     ok = [c for c in curve if c["loss_rate"] <= 0.001]
     path = write_result("jitter", {
-        "source": "results/sensor.json interval_ms (실측) + 계산",
-        "nominal_interval_ms": nominal, "n_samples": n,
+        "source": "results/arrival.json 의 실측 도착 시각 + 계산",
+        "nominal_interval_ms": nominal, "n_samples": int(len(arrivals)),
         "curve": curve,
         "min_buffer_for_0p1pct_ms": ok[0]["buffer_ms"] if ok else None,
         "is_simulation": True,
     })
-    print(f"유실 0.1% 를 만족하는 최소 버퍼: "
-          f"{ok[0]['buffer_ms']:.1f}ms ({ok[0]['buffer_ms'] / nominal:.2f} 프레임)"
-          if ok else "0.1% 를 만족하는 버퍼가 범위 안에 없다")
+    if ok:
+        print(f"유실 0.1% 를 만족하는 최소 버퍼: {ok[0]['buffer_ms']:.1f} ms "
+              f"({ok[0]['buffer_ms'] / nominal:.2f} 프레임)")
+    else:
+        print("0.1% 를 만족하는 버퍼가 범위(6 프레임) 안에 없다 — 범위를 넓혀 다시 계산한다")
     print(f"wrote {path}")
 
 
@@ -627,27 +536,22 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 2: 계산을 돌린다**
+- [ ] **Step 4: 곡선이 단조인지 확인한다**
 
 Run:
 ```powershell
 & C:\Users\a\anaconda3\envs\camera\python.exe tools/camera-latency/compute_jitter.py
-```
-Expected: 최소 버퍼 한 줄과 `wrote ...\results\jitter.json`.
-
-- [ ] **Step 3: 곡선이 단조인지 확인한다**
-
-Run:
-```powershell
 & C:\Users\a\anaconda3\envs\camera\python.exe -c "import json; c=json.load(open('tools/camera-latency/results/jitter.json',encoding='utf-8'))['data']['curve']; ls=[x['loss_rate'] for x in c]; print('monotone:', all(a>=b for a,b in zip(ls,ls[1:]))); print(ls[:6], ls[-3:])"
 ```
+
 Expected: `monotone: True`. 버퍼를 키우면 유실률이 줄어야 한다 — 아니면 계산이 틀렸다.
 
-- [ ] **Step 4: 커밋**
+- [ ] **Step 5: 커밋**
 
 ```bash
-git add tools/camera-latency/compute_jitter.py tools/camera-latency/results/jitter.json
-git commit -m "feat(camera-latency): turn the measured interval spread into a jitter-buffer curve"
+git add tools/camera-latency/measure_arrival.py tools/camera-latency/compute_jitter.py \
+        tools/camera-latency/results/arrival.json tools/camera-latency/results/jitter.json
+git commit -m "feat(camera-latency): the jitter-buffer curve, from real arrival times"
 ```
 
 ---
@@ -657,41 +561,45 @@ git commit -m "feat(camera-latency): turn the measured interval spread into a ji
 **측정 전에 스펙을 썼으므로 이 게이트가 이 계획의 핵심이다.** 7편·8편·cpp-for-vision 에서 승인받은 축이 세 번 연속 무너졌다. 글을 쓰기 전에 반드시 통과한다.
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-08-05-camera-latency-design.md` (§0 에 결과 절 추가, §1 의 축 확정 또는 교체, §2-A\~2-D 의 반증 조건에 결과 기입)
+- Modify: `docs/superpowers/specs/2026-08-05-camera-latency-design.md` (§0 에 결과 절 추가, §1 의 축 확정, 제목·그림 선택)
 
 **Interfaces:**
-- Consumes: `results/sensor.json`, `results/encoder.json`, `results/buffer.json`, `results/jitter.json`
+- Consumes: `results/encoder.json`, `results/buffer.json`, `results/arrival.json`, `results/jitter.json`
 - Produces: 확정된 축 한 문장과 제목 하나. Task 7 이 이것을 그대로 쓴다.
 
-- [ ] **Step 1: 네 반증 조건의 결과를 한자리에 모은다**
+> 🔁 **2-A 취소로 이 게이트의 일부가 이미 처리됐다.** 축의 뒷문장("카메라·회선이 아니라")은
+> 측정이 아니라 **범위 축소**로 죽었다 — 카메라를 재지 않으면 "카메라보다 크다" 를 말할 수
+> 없다. 스펙 §1 에 취소선과 대체 축을 적어뒀고, §2-B·§2-C 에도 결과를 적었다.
+> 남은 일은 **대체 축이 실측 셋과 맞는지 확인하고 제목·그림을 고르는 것**이다.
+
+- [ ] **Step 1: 두 반증 조건의 결과를 한자리에 모은다**
 
 Run:
 ```powershell
-& C:\Users\a\anaconda3\envs\camera\python.exe -c "import json,glob;
-[print(f, json.load(open(f,encoding='utf-8'))['data'].get('refutation_2a') or json.load(open(f,encoding='utf-8'))['data'].get('refutation_2b') or json.load(open(f,encoding='utf-8'))['data'].get('refutation_2c') or 'n/a') for f in sorted(glob.glob('tools/camera-latency/results/*.json'))]"
+& C:\Users\a\anaconda3\envs\camera\python.exe -c "import json,glob; [print(f, json.load(open(f,encoding='utf-8'))['data'].get('refutation_2b') or json.load(open(f,encoding='utf-8'))['data'].get('refutation_2c') or 'n/a') for f in sorted(glob.glob('tools/camera-latency/results/*.json'))]"
 ```
-Expected: 4 줄. `jitter.json` 은 `n/a`(반증 조건이 없는 계산이다).
+Expected: 4 줄. `arrival.json` 과 `jitter.json` 은 `n/a`(반증 조건이 없는 측정·계산이다).
 
-- [ ] **Step 2: 축을 판정한다**
+- [ ] **Step 2: 대체 축이 실측과 맞는지 확인한다**
 
-스펙 §1 의 가설은 **"예산의 가장 큰 항목은 카메라·회선이 아니라 수신측 버퍼와 인코더 구조다"** 였다. 판정 규칙:
+스펙 §1 의 대체 축은 **"지연 예산의 각 항목은 파라미터에서 예측할 수 있고, 프레임률과 무관하다"** 다. 판정 규칙:
 
 | 조건 | 결론 |
 |---|---|
-| `encoder.threading_vs_bframes.larger == "threads"` | 축의 "인코더 구조" 를 **스레딩** 으로 특정한다. B프레임은 부차 항목으로 내린다 |
-| `refutation_2b.passed == false` | "B프레임은 구조적 지연" 을 **버린다**. 축을 스레딩·버퍼만으로 다시 쓴다 |
-| `refutation_2c.passed == false` | "수신측 버퍼" 를 **"백엔드에 따라 버리거나 쌓는다"** 로 약화한다. 축의 앞부분(예산)만 남긴다 |
-| 둘 다 `false` | 🚨 축이 무너졌다. 부제 축(**지연 ≠ 1/fps**)을 **주 축으로 승격**하고, 측정 결과는 "고칠 곳이 어디가 아닌지" 의 근거로 쓴다 |
-| `refutation_2a.passed == false` 또는 `absolute_lag_meaningful == false` | §2-A 를 상대 비교로 축소하고 절대 센서 지연은 §2-E 로 내린다. 축과는 무관 |
+| `encoder.rules_hold` 가 전부 참 **그리고** `buffer.lag_growth.agrees_within_5pct` 가 참 | 축 확정. 두 예측식이 실측과 맞았다는 것이 축 그 자체다 |
+| `encoder.rules_hold` 중 하나라도 거짓 | 그 규칙을 **식이 아니라 관측치로** 내려 쓴다. "예측할 수 있다" 를 "인코더는 예측되고 버퍼는" 으로 좁힌다 |
+| `buffer.lag_growth.agrees_within_5pct` 가 거짓 | 버퍼 쪽 예측식을 버리고 실측 곡선만 쓴다. 축을 "인코더는 계산되고, 버퍼는 재야 한다" 로 바꾼다 |
+| 둘 다 거짓 | 🚨 축이 무너졌다. 부제 축(**지연 ≠ 1/fps**)을 주 축으로 승격한다 |
+| `arrival.consume_fps` 가 `fps` 보다 뚜렷이 낮음 | 🚨 2-D 무효 — 지터가 아니라 백로그를 잰 것이다. Task 4 Step 2 로 돌아간다 |
 
-- [ ] **Step 3: 스펙을 고친다**
+- [ ] **Step 3: 스펙을 마저 고친다**
 
 `docs/superpowers/specs/2026-08-05-camera-latency-design.md` 에:
 
-1. §0 **앞에** `## 0. 측정 결과 — 가설은 어떻게 됐나` 절을 넣는다. 8편 스펙 §0 과 같은 형식이다. 축이 교체됐으면 원래 축을 `~~취소선~~` 으로 남기고 무엇이 그것을 죽였는지 숫자와 함께 적는다. 유지됐으면 **어떤 숫자가 그것을 지지했는지** 적는다.
-2. §1 의 "가설 — 측정으로 확정한다" 를 **"확정"** 으로 바꾸고 최종 축 한 문장을 쓴다.
-3. §1 의 제목 후보 3 개에서 하나를 고르고 나머지에 `~~취소선~~`.
-4. §2-A\~2-D 의 각 **반증 조건** 아래에 `**결과:**` 한 줄로 실측값과 통과/반증을 적는다.
+1. §0 **앞에** `## 0. 측정 결과 — 가설은 어떻게 됐나` 절을 넣는다. 8편 스펙 §0 과 같은 형식이다. **이번에는 축이 측정이 아니라 범위 축소로 바뀌었다는 점**을 분명히 적는다 — 측정이 반박한 것과 못 재서 못 쓰게 된 것은 다르고, 그 구분이 이 글의 규율이다.
+2. §1 의 "가설 — 측정으로 확정한다" 를 **"확정"** 으로 바꾼다.
+3. §1 의 남은 제목 후보 둘 중 하나를 고르고 나머지에 `~~취소선~~`.
+4. §2-D 에 `**결과:**` 를 적는다 (2-B·2-C 는 이미 적혀 있다).
 5. §5 의 그림 4 후보에서 **셋을 고르고** 근거를 한 줄 적는다.
 
 - [ ] **Step 4: 스펙에 미결이 남지 않았는지 확인한다**
@@ -747,7 +655,7 @@ def load(name):
     return json.loads((HERE / "results" / f"{name}.json").read_text(encoding="utf-8"))["data"]
 ```
 
-`fig_budget()` — 아홉 단계 수평 스택 바 한 줄. 실측 구간은 `MEASURED`, 문헌 구간은 `CITED` 로 칠하고 **범례에 "이 글에서 실측" / "문헌 인용(재지 않음)" 을 적는다.** 실측 구간의 값은 `sensor.json`·`encoder.json`(프레임 수 × `1000/fps`)·`jitter.json` 에서 읽는다. 문헌 구간의 값은 Task 7 의 Sources 와 **같은 출처**에서 오며, 스크립트 상단에 `CITED_MS = {"패널 응답": (값, "출처 URL"), ...}` 로 두고 주석에 출처를 적는다.
+`fig_budget()` — 아홉 단계 수평 스택 바 한 줄. 실측 구간은 `MEASURED`, 문헌 구간은 `CITED` 로 칠하고 **범례에 "이 글에서 실측" / "문헌 인용(재지 않음)" 을 적는다.** 실측 구간의 값은 `encoder.json`(프레임 수 × `1000/fps`)·`buffer.json`·`jitter.json` 에서 읽는다. **인용 칸이 여섯, 실측 칸이 셋**이므로 그 비율이 그림에서 그대로 보이게 그린다 — 인용이 다수라는 사실을 숨기지 않는다. 문헌 구간의 값은 Task 7 의 Sources 와 **같은 출처**에서 오며, 스크립트 상단에 `CITED_MS = {"패널 응답": (값, "출처 URL"), ...}` 로 두고 주석에 출처를 적는다.
 
 `fig_encoder()` — 조건별 삼킨 프레임 수 수평 막대. `zerolatency` 조건을 0 기준선으로 강조.
 `fig_buffer()` — 느린 소비 구간과 드레인 구간의 누적 프레임 수 두 선.
@@ -797,7 +705,7 @@ title = "<Task 5 에서 고른 제목>"
 date = 2026-08-05T18:00:00+09:00
 draft = false
 math = true
-tags = ["카메라", "지연", "latency", "RealSense", "OpenCV", "FFmpeg", "H.264"]
+tags = ["카메라", "지연", "latency", "OpenCV", "FFmpeg", "H.264"]
 categories = ["기타"]
 summary = "<축 한 문장 + 실측 범위 한 문장>"
 
@@ -819,7 +727,7 @@ summary = "<축 한 문장 + 실측 범위 한 문장>"
 
 - [ ] **Step 2: §"먼저: 무슨 지연을 말하는가" 를 쓴다**
 
-네 가지를 구분하는 표(glass-to-glass / 파이프라인 지연 / 지터 / 프레임 간격) + **지연 ≠ 1/fps** 를 여기서 한 번만 깬다. `sensor.json` 의 `interval_ms.median` 이 `1000/fps` 에 가까운데 도착 지연은 그보다 크다는 실측을 근거로 쓴다.
+네 가지를 구분하는 표(glass-to-glass / 파이프라인 지연 / 지터 / 프레임 간격) + **지연 ≠ 1/fps** 를 여기서 한 번만 깬다. `arrival.json` 의 `interval_ms.median` 이 `1000/fps` 에 가까운데 `buffer.json` 의 누적 지연은 9.6 초까지 자란다는 실측을 근거로 쓴다 — **같은 스트림에서 프레임 간격은 정상인데 지연은 9 초**라는 것이 이 문장의 가장 좋은 증거다.
 
 - [ ] **Step 3: §"지연 예산 — 아홉 단계" 를 쓴다**
 
@@ -838,7 +746,7 @@ A(센서→호스트) · B(인코더 구조적 지연) · C(버퍼 누적) · D(
 - B 의 **프레임 수**는 절대값으로 인용한다(기계 독립). ms 는 배율만.
 - C 는 백엔드 이름과 OpenCV 버전을 붙인다. `grab_helps.verdict` 를 그대로 항목으로 쓴다.
 - D 는 **"시뮬레이션"** 이라고 적는다.
-- §2-A 의 `absolute_lag_meaningful` 이 `false` 면 "이 방법으로는 절대 센서 지연을 볼 수 없다" 로 쓴다.
+- 센서 구간(노출·리드아웃·ISP·USB)은 **재지 않았다.** "이 글에서 재지 않았다" 로 명시하고 출처를 단다. "안 나왔다" 가 아니다.
 
 - [ ] **Step 6: §"재지 않은 것" · §"흔한 함정" · §"상황별 첫 수" · §"메모" · Sources 를 쓴다**
 
@@ -865,7 +773,7 @@ git commit -m "post: camera latency — where the milliseconds go, and how to me
 
 - [ ] **Step 1: `tools/camera-latency/README.md` 를 쓴다**
 
-`tools/cpp-for-vision/README.md` 와 같은 형식. 담을 것: 어느 스크립트가 글의 어느 절을 만드는지 · 측정 환경 블록 · **정확한 실행 명령(파이썬 절대 경로 포함)** · D455 연결이 필요하다는 점 · `results/*.json` 이 글의 유일한 숫자 출처라는 점 · 지터버퍼는 시뮬레이션이라는 점.
+`tools/cpp-for-vision/README.md` 와 같은 형식. 담을 것: 어느 스크립트가 글의 어느 절을 만드는지 · 측정 환경 블록 · **정확한 실행 명령(파이썬 절대 경로 포함)** · 카메라가 필요 없다는 점(전부 localhost 루프백) · `results/*.json` 이 글의 유일한 숫자 출처라는 점 · 지터버퍼는 시뮬레이션이라는 점.
 
 - [ ] **Step 2: Hugo 빌드**
 
@@ -934,7 +842,7 @@ git commit -m "docs(camera-latency): reproduction notes, and tick the spec's suc
 | §1 축(가설) 확정 | Task 5 |
 | §1 제목 선택 | Task 5 Step 3 |
 | §1 세 매듭 (트래픽 글·백분위·taxonomy) | Task 7 Step 3·4·6 |
-| §2-A 센서→호스트 | Task 1 |
+| §2-A 센서→호스트 | ~~Task 1~~ — 2026-08-05 취소, §2-E 로 내림 |
 | §2-B 인코더 구조적 지연 | Task 2 |
 | §2-C 버퍼 누적 | Task 3 |
 | §2-D 지터버퍼 | Task 4 |
@@ -955,4 +863,4 @@ git commit -m "docs(camera-latency): reproduction notes, and tick the spec's suc
 
 **2. 플레이스홀더 스캔** — Task 6 Step 1 이 `fig_budget()` 등의 본문 코드를 다 싣지 않고 규약과 데이터 출처만 지정한다. 의도적이다: 그림의 구체적 형태는 Task 5 가 고른 셋과 실측값의 모양에 달렸고, 지금 코드를 박아두면 값을 손으로 쓰게 된다. 대신 **입력 JSON 경로·색 상수·범례 문구·확인 항목**을 못 박아 두었다. Task 7 도 같은 이유로 절별 요구사항과 규칙을 지정하며, 실제 문장은 실측값에 달렸다.
 
-**3. 타입 일관성** — `common.write_result(name, payload)` / `common.percentile(xs, q)` / `common.env_block()` 이 Task 1 에서 정의되고 Task 2·3·4 에서 같은 이름·같은 인자로 쓰인다. JSON 키(`refutation_2a`/`2b`/`2c`, `threading_vs_bframes`, `absolute_lag_meaningful`, `grab_helps`, `is_simulation`)가 Task 5·6·7 에서 같은 이름으로 참조된다. `results/` 경로는 전부 `tools/camera-latency/results/`.
+**3. 타입 일관성** — `common.write_result(name, payload)` / `common.percentile(xs, q)` / `common.env_block()` 이 Task 1 에서 정의되고 Task 2·3·4 에서 같은 이름·같은 인자로 쓰인다. JSON 키(`refutation_2b`/`2c`, `rules_hold`, `isolated_costs_frames`, `lag_growth`, `grab_helps`, `is_simulation`, `consume_fps`)가 Task 5·6·7 에서 같은 이름으로 참조된다. `results/` 경로는 전부 `tools/camera-latency/results/`.

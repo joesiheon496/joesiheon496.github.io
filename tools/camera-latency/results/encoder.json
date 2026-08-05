@@ -1,0 +1,423 @@
+{
+  "env": {
+    "os": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.14",
+    "opencv": "4.10.0",
+    "pyav": "17.0.0",
+    "numpy": "2.2.6",
+    "pyrealsense2": "2.56.5.9235"
+  },
+  "data": {
+    "codec": "libx264",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "frames_fed": 120,
+    "runs": [
+      {
+        "label": "tune=zerolatency (하한)",
+        "options": {
+          "tune": "zerolatency",
+          "bf": "0",
+          "g": "30"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 0,
+        "encode_ms": {
+          "median": 9.841649909503758,
+          "p99": 32.206099946051836
+        },
+        "flush_packets": 0
+      },
+      {
+        "label": "대조군: 기본 bf=0",
+        "options": {
+          "bf": "0",
+          "g": "30"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 31,
+        "encode_ms": {
+          "median": 9.612150024622679,
+          "p99": 31.892600003629923
+        },
+        "flush_packets": 31
+      },
+      {
+        "label": "기본 bf=3",
+        "options": {
+          "bf": "3",
+          "g": "30"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "3"
+        },
+        "swallowed_frames": 31,
+        "encode_ms": {
+          "median": 9.805400040932,
+          "p99": 31.962400069460273
+        },
+        "flush_packets": 31
+      },
+      {
+        "label": "기본 bf=16",
+        "options": {
+          "bf": "16",
+          "g": "30"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "16"
+        },
+        "swallowed_frames": 31,
+        "encode_ms": {
+          "median": 9.669300052337348,
+          "p99": 31.35189996100962
+        },
+        "flush_packets": 31
+      },
+      {
+        "label": "lookahead=0, bf=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 1,
+        "encode_ms": {
+          "median": 10.006300057284534,
+          "p99": 31.381700187921524
+        },
+        "flush_packets": 1
+      },
+      {
+        "label": "lookahead=0, bf=3",
+        "options": {
+          "bf": "3",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "3"
+        },
+        "swallowed_frames": 4,
+        "encode_ms": {
+          "median": 10.119349928572774,
+          "p99": 32.404999947175384
+        },
+        "flush_packets": 4
+      },
+      {
+        "label": "lookahead=0, bf=16",
+        "options": {
+          "bf": "16",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "16"
+        },
+        "swallowed_frames": 17,
+        "encode_ms": {
+          "median": 9.36969998292625,
+          "p99": 31.99420007877052
+        },
+        "flush_packets": 17
+      },
+      {
+        "label": "lookahead=10, bf=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "10"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 11,
+        "encode_ms": {
+          "median": 9.58995008841157,
+          "p99": 32.686500111594796
+        },
+        "flush_packets": 11
+      },
+      {
+        "label": "g=15, bf=0",
+        "options": {
+          "bf": "0",
+          "g": "15"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "15",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 16,
+        "encode_ms": {
+          "median": 9.262150037102401,
+          "p99": 32.48589998111129
+        },
+        "flush_packets": 16
+      },
+      {
+        "label": "g=250, bf=0",
+        "options": {
+          "bf": "0",
+          "g": "250"
+        },
+        "requested_attrs": {
+          "thread_count": "1"
+        },
+        "applied": {
+          "thread_count": "1",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "250",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 41,
+        "encode_ms": {
+          "median": 10.052949888631701,
+          "p99": 14.627199852839112
+        },
+        "flush_packets": 41
+      },
+      {
+        "label": "슬라이스 스레딩 x4, la=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "4",
+          "thread_type": "SLICE"
+        },
+        "applied": {
+          "thread_count": "4",
+          "thread_type": "ThreadType.SLICE",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 1,
+        "encode_ms": {
+          "median": 2.8127499390393496,
+          "p99": 8.38859984651208
+        },
+        "flush_packets": 1
+      },
+      {
+        "label": "프레임 스레딩 x2, la=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "2",
+          "thread_type": "FRAME"
+        },
+        "applied": {
+          "thread_count": "2",
+          "thread_type": "ThreadType.FRAME",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 3,
+        "encode_ms": {
+          "median": 4.91675001103431,
+          "p99": 27.874500025063753
+        },
+        "flush_packets": 3
+      },
+      {
+        "label": "프레임 스레딩 x4, la=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "4",
+          "thread_type": "FRAME"
+        },
+        "applied": {
+          "thread_count": "4",
+          "thread_type": "ThreadType.FRAME",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 5,
+        "encode_ms": {
+          "median": 1.2679500505328178,
+          "p99": 25.99739981815219
+        },
+        "flush_packets": 5
+      },
+      {
+        "label": "프레임 스레딩 x8, la=0",
+        "options": {
+          "bf": "0",
+          "g": "30",
+          "rc-lookahead": "0"
+        },
+        "requested_attrs": {
+          "thread_count": "8",
+          "thread_type": "FRAME"
+        },
+        "applied": {
+          "thread_count": "8",
+          "thread_type": "ThreadType.FRAME",
+          "gop_size": "30",
+          "max_b_frames": "0"
+        },
+        "swallowed_frames": 9,
+        "encode_ms": {
+          "median": 0.698799965903163,
+          "p99": 24.453399935737252
+        },
+        "flush_packets": 9
+      }
+    ],
+    "isolated_costs_frames": {
+      "lookahead": 30,
+      "bframes": 3,
+      "frame_threading": 4
+    },
+    "dominant_cause": "lookahead",
+    "rules": {
+      "lookahead_min_gop_plus_1": [
+        {
+          "gop": 30,
+          "rc_lookahead": 40,
+          "predicted": 31,
+          "measured": 31
+        },
+        {
+          "gop": 250,
+          "rc_lookahead": 40,
+          "predicted": 41,
+          "measured": 41
+        },
+        {
+          "gop": 15,
+          "rc_lookahead": 40,
+          "predicted": 16,
+          "measured": 16
+        },
+        {
+          "gop": 30,
+          "rc_lookahead": 10,
+          "predicted": 11,
+          "measured": 11
+        },
+        {
+          "gop": 30,
+          "rc_lookahead": 0,
+          "predicted": 1,
+          "measured": 1
+        }
+      ],
+      "bframes_bf_plus_1": [
+        {
+          "bf": 0,
+          "predicted": 1,
+          "measured": 1
+        },
+        {
+          "bf": 3,
+          "predicted": 4,
+          "measured": 4
+        },
+        {
+          "bf": 16,
+          "predicted": 17,
+          "measured": 17
+        }
+      ],
+      "frame_threading_threads_plus_1": [
+        {
+          "threads": 2,
+          "predicted": 3,
+          "measured": 3
+        },
+        {
+          "threads": 4,
+          "predicted": 5,
+          "measured": 5
+        },
+        {
+          "threads": 8,
+          "predicted": 9,
+          "measured": 9
+        }
+      ]
+    },
+    "rules_hold": {
+      "lookahead_min_gop_plus_1": true,
+      "bframes_bf_plus_1": true,
+      "frame_threading_threads_plus_1": true
+    },
+    "refutation_2b": {
+      "passed": true,
+      "note": "lookahead=0 에서 bf=0 은 1 장, bf=3 은 4 장 -> B프레임만의 비용 3 장. 통과: B프레임은 구조적 지연을 더한다"
+    }
+  }
+}

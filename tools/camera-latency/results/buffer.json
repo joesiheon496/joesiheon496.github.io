@@ -1,0 +1,249 @@
+{
+  "env": {
+    "os": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.14",
+    "opencv": "4.10.0",
+    "pyav": "17.0.0",
+    "numpy": "2.2.6",
+    "pyrealsense2": "2.56.5.9235"
+  },
+  "data": {
+    "backend": "FFMPEG",
+    "sender_cmd": [
+      "C:\\Users\\a\\anaconda3\\envs\\ros_env\\Library\\bin\\ffmpeg.exe",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-re",
+      "-f",
+      "lavfi",
+      "-i",
+      "testsrc=size=640x480:rate=30",
+      "-c:v",
+      "libx264",
+      "-tune",
+      "zerolatency",
+      "-g",
+      "30",
+      "-pix_fmt",
+      "yuv420p",
+      "-f",
+      "mpegts",
+      "udp://127.0.0.1:23000"
+    ],
+    "consumer_target_fps": 20.0,
+    "phases": {
+      "slow": {
+        "seconds": 30.04213760001585,
+        "frames_read": 590,
+        "expected_frames": 900
+      },
+      "drain": {
+        "seconds": 0.2167672999203205,
+        "frames_read": 394
+      }
+    },
+    "buffersize": {
+      "set_returned": false,
+      "readback": 0.0
+    },
+    "grab_helps": {
+      "tested": true,
+      "frames_read": 322,
+      "drain_frames": 8,
+      "verdict": "효과 있음"
+    },
+    "trace": [
+      {
+        "elapsed_s": 1.017,
+        "frames_read": 21,
+        "pos_msec": 700.0000000000001,
+        "lag_ms": 0.0
+      },
+      {
+        "elapsed_s": 2.035,
+        "frames_read": 41,
+        "pos_msec": 1366.6666666666667,
+        "lag_ms": 351.3333333333336
+      },
+      {
+        "elapsed_s": 3.002,
+        "frames_read": 60,
+        "pos_msec": 2000.0,
+        "lag_ms": 684.9999999999998
+      },
+      {
+        "elapsed_s": 4.025,
+        "frames_read": 80,
+        "pos_msec": 2666.666666666667,
+        "lag_ms": 1041.3333333333335
+      },
+      {
+        "elapsed_s": 5.043,
+        "frames_read": 100,
+        "pos_msec": 3333.3333333333335,
+        "lag_ms": 1392.6666666666665
+      },
+      {
+        "elapsed_s": 6.01,
+        "frames_read": 119,
+        "pos_msec": 3966.666666666667,
+        "lag_ms": 1726.333333333333
+      },
+      {
+        "elapsed_s": 7.031,
+        "frames_read": 139,
+        "pos_msec": 4633.333333333334,
+        "lag_ms": 2080.666666666665
+      },
+      {
+        "elapsed_s": 8.049,
+        "frames_read": 159,
+        "pos_msec": 5300.0,
+        "lag_ms": 2432.0
+      },
+      {
+        "elapsed_s": 9.016,
+        "frames_read": 178,
+        "pos_msec": 5933.333333333334,
+        "lag_ms": 2765.666666666667
+      },
+      {
+        "elapsed_s": 10.034,
+        "frames_read": 198,
+        "pos_msec": 6600.000000000001,
+        "lag_ms": 3117.000000000001
+      },
+      {
+        "elapsed_s": 11.002,
+        "frames_read": 217,
+        "pos_msec": 7233.333333333333,
+        "lag_ms": 3451.666666666669
+      },
+      {
+        "elapsed_s": 12.021,
+        "frames_read": 237,
+        "pos_msec": 7900.0,
+        "lag_ms": 3804.000000000002
+      },
+      {
+        "elapsed_s": 13.039,
+        "frames_read": 257,
+        "pos_msec": 8566.666666666666,
+        "lag_ms": 4155.333333333334
+      },
+      {
+        "elapsed_s": 14.006,
+        "frames_read": 276,
+        "pos_msec": 9200.000000000002,
+        "lag_ms": 4488.999999999998
+      },
+      {
+        "elapsed_s": 15.025,
+        "frames_read": 296,
+        "pos_msec": 9866.666666666668,
+        "lag_ms": 4841.333333333332
+      },
+      {
+        "elapsed_s": 16.044,
+        "frames_read": 316,
+        "pos_msec": 10533.333333333334,
+        "lag_ms": 5193.666666666668
+      },
+      {
+        "elapsed_s": 17.009,
+        "frames_read": 335,
+        "pos_msec": 11166.666666666668,
+        "lag_ms": 5525.333333333332
+      },
+      {
+        "elapsed_s": 18.027,
+        "frames_read": 355,
+        "pos_msec": 11833.333333333334,
+        "lag_ms": 5876.666666666666
+      },
+      {
+        "elapsed_s": 19.046,
+        "frames_read": 375,
+        "pos_msec": 12500.0,
+        "lag_ms": 6229.0
+      },
+      {
+        "elapsed_s": 20.013,
+        "frames_read": 394,
+        "pos_msec": 13133.333333333334,
+        "lag_ms": 6562.66666666667
+      },
+      {
+        "elapsed_s": 21.03,
+        "frames_read": 414,
+        "pos_msec": 13800.0,
+        "lag_ms": 6913.0
+      },
+      {
+        "elapsed_s": 22.047,
+        "frames_read": 434,
+        "pos_msec": 14466.666666666666,
+        "lag_ms": 7263.333333333334
+      },
+      {
+        "elapsed_s": 23.014,
+        "frames_read": 453,
+        "pos_msec": 15100.000000000002,
+        "lag_ms": 7596.999999999998
+      },
+      {
+        "elapsed_s": 24.034,
+        "frames_read": 473,
+        "pos_msec": 15766.666666666668,
+        "lag_ms": 7950.333333333332
+      },
+      {
+        "elapsed_s": 25.002,
+        "frames_read": 492,
+        "pos_msec": 16400.000000000004,
+        "lag_ms": 8284.999999999996
+      },
+      {
+        "elapsed_s": 26.019,
+        "frames_read": 512,
+        "pos_msec": 17066.666666666668,
+        "lag_ms": 8635.333333333332
+      },
+      {
+        "elapsed_s": 27.039,
+        "frames_read": 532,
+        "pos_msec": 17733.333333333336,
+        "lag_ms": 8988.666666666668
+      },
+      {
+        "elapsed_s": 28.007,
+        "frames_read": 551,
+        "pos_msec": 18366.666666666668,
+        "lag_ms": 9323.333333333336
+      },
+      {
+        "elapsed_s": 29.024,
+        "frames_read": 571,
+        "pos_msec": 19033.333333333336,
+        "lag_ms": 9673.666666666664
+      }
+    ],
+    "pos_msec_usable": true,
+    "pts_lag_ms": {
+      "start": 0.0,
+      "end": 9673.666666666664
+    },
+    "lag_growth": {
+      "measured_ms_per_s": 345.40174480189467,
+      "predicted_ms_per_s": 345.4017448018949,
+      "consume_fps": 19.637947655943155,
+      "agrees_within_5pct": true,
+      "monotonic": true
+    },
+    "refutation_2c": {
+      "passed": true,
+      "note": "느린 소비 30.0s 동안 590 장 읽음 (송출 약 900 장), 드레인 217ms 에 394 장 쏟아짐 -> 통과: 버퍼가 쌓였다 = 지연이 자란다"
+    }
+  }
+}

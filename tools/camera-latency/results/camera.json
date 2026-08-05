@@ -1,0 +1,253 @@
+{
+  "env": {
+    "os": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.14",
+    "opencv": "4.10.0",
+    "pyav": "17.0.0",
+    "numpy": "2.2.6",
+    "pyrealsense2": "2.56.5.9235"
+  },
+  "data": {
+    "device": {
+      "model": "XNO-L6020R",
+      "vendor": "Hanwha Vision (Wisenet)",
+      "firmware": "2.10.02_20220401_R441",
+      "host": "192.168.50.27",
+      "profile2": "H.264 High/CABAC 1920x1080 30fps VBR 2560kbps GOP(GOV)=60",
+      "profile1": "MJPEG 1920x1080 5fps"
+    },
+    "note": "카메라 설정은 변경하지 않았다. 읽기 전용 측정.",
+    "seconds_per_config": 25.0,
+    "warmup_frames_dropped": 30,
+    "runs": [
+      {
+        "label": "H.264 profile2 / TCP",
+        "profile": 2,
+        "transport": "tcp",
+        "max_delay_us": null,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 689,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.974940165865448,
+        "interval_ms": {
+          "median": 34.07525003422052,
+          "std": 10.973346991124275,
+          "p99": 56.66649993509054,
+          "max": 62.95599997974932
+        },
+        "jitter_offset_ms": {
+          "p50": 9.229817380575696,
+          "p99": 34.40841668468318,
+          "max": 41.59397852704569
+        }
+      },
+      {
+        "label": "H.264 profile2 / UDP",
+        "profile": 2,
+        "transport": "udp",
+        "max_delay_us": null,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 689,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.970782059619687,
+        "interval_ms": {
+          "median": 34.06744997482747,
+          "std": 10.779866799060034,
+          "p99": 56.78260000422597,
+          "max": 63.397400081157684
+        },
+        "jitter_offset_ms": {
+          "p50": 9.806715303298915,
+          "p99": 33.50922264737717,
+          "max": 42.94137378445703
+        }
+      },
+      {
+        "label": "MJPEG profile1 / TCP",
+        "profile": 1,
+        "transport": "tcp",
+        "max_delay_us": null,
+        "codec": "mjpeg",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 115,
+        "packets_before_first_frame": 0,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 4.986613676150044,
+        "interval_ms": {
+          "median": 208.08254985604435,
+          "std": 30.03102919712071,
+          "p99": 251.25469989143312,
+          "max": 256.1342001426965
+        },
+        "jitter_offset_ms": {
+          "p50": 15.99797082511941,
+          "p99": 66.53143317081798,
+          "max": 68.6122770221009
+        }
+      },
+      {
+        "label": "UDP max_delay=100ms",
+        "profile": 2,
+        "transport": "udp",
+        "max_delay_us": 100000,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 689,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.96957169326121,
+        "interval_ms": {
+          "median": 34.0229501016438,
+          "std": 11.288226864744827,
+          "p99": 59.553599916398525,
+          "max": 63.03209997713566
+        },
+        "jitter_offset_ms": {
+          "p50": 8.710202117608787,
+          "p99": 37.9013118832514,
+          "max": 40.547942289286766
+        }
+      },
+      {
+        "label": "UDP max_delay=500ms",
+        "profile": 2,
+        "transport": "udp",
+        "max_delay_us": 500000,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 688,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.996779472399428,
+        "interval_ms": {
+          "median": 34.01790000498295,
+          "std": 10.864750023749567,
+          "p99": 55.383500177413225,
+          "max": 60.61199982650578
+        },
+        "jitter_offset_ms": {
+          "p50": 9.479955533862267,
+          "p99": 33.68644178016553,
+          "max": 41.329544431500835
+        }
+      },
+      {
+        "label": "UDP max_delay=2000ms",
+        "profile": 2,
+        "transport": "udp",
+        "max_delay_us": 2000000,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 689,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.980192592461385,
+        "interval_ms": {
+          "median": 34.036100027151406,
+          "std": 10.991983848701883,
+          "p99": 57.3189000133425,
+          "max": 61.442899983376265
+        },
+        "jitter_offset_ms": {
+          "p50": 8.781116669884796,
+          "p99": 33.86815183401138,
+          "max": 40.74298959201769
+        }
+      },
+      {
+        "label": "TCP max_delay=500ms (대조)",
+        "profile": 2,
+        "transport": "tcp",
+        "max_delay_us": 500000,
+        "codec": "h264",
+        "width": 1920,
+        "height": 1080,
+        "n_frames": 689,
+        "packets_before_first_frame": 59,
+        "pts_dts_mismatch_frames": 0,
+        "measured_fps": 29.972916333256205,
+        "interval_ms": {
+          "median": 33.98359997663647,
+          "std": 11.139120540178185,
+          "p99": 57.65700014308095,
+          "max": 63.08150012046099
+        },
+        "jitter_offset_ms": {
+          "p50": 9.67313103959168,
+          "p99": 37.2723745316366,
+          "max": 42.414954170160854
+        }
+      }
+    ],
+    "max_delay_artifact": {
+      "points": [
+        {
+          "max_delay_ms": 100.0,
+          "jitter_p99_ms": 37.9013118832514
+        },
+        {
+          "max_delay_ms": 500.0,
+          "jitter_p99_ms": 33.68644178016553
+        },
+        {
+          "max_delay_ms": 2000.0,
+          "jitter_p99_ms": 33.86815183401138
+        }
+      ],
+      "p99_over_setting": [
+        0.37901311883251404,
+        0.06737288356033107,
+        0.01693407591700569
+      ],
+      "tracks_setting": false
+    },
+    "repeatability": [
+      {
+        "label": "TCP 기본값",
+        "transport": "tcp",
+        "n_runs": 5,
+        "seconds_per_run": 15.0,
+        "jitter_p99_ms": [
+          33.6,
+          32.1,
+          35.9,
+          34.9,
+          33.2
+        ],
+        "min": 32.05360192640016,
+        "max": 35.890179839380515,
+        "median": 33.565235377537405,
+        "spread_ratio": 1.1196925675245393,
+        "reproducible": true
+      },
+      {
+        "label": "UDP 기본값",
+        "transport": "udp",
+        "n_runs": 5,
+        "seconds_per_run": 15.0,
+        "jitter_p99_ms": [
+          39.2,
+          36.0,
+          33.1,
+          37.8,
+          35.1
+        ],
+        "min": 33.14645826165057,
+        "max": 39.23852530002789,
+        "median": 35.984113452488614,
+        "spread_ratio": 1.1837923976760332,
+        "reproducible": true
+      }
+    ]
+  }
+}

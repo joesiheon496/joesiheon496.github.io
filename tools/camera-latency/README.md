@@ -67,3 +67,24 @@ $PY = "C:\Users\a\anaconda3\envs\camera\python.exe"
   `threads`)이 **모든 조건**에서 성립하는지
 - `measure_buffer.py` → `lag_growth.agrees_within_5pct` — 서로 독립인 두 방법
   (스트림 타임스탬프 대 벽시계, 프레임 결손 × 프레임 주기)이 일치하는지
+
+## 실제 IP 카메라 측정 (`measure_camera.py`)
+
+Hanwha Vision Wisenet **XNO-L6020R**, 펌웨어 2.10.02. 글의 실측 3 을 만든다.
+
+**읽기 전용이다.** 프로파일·GOP·비트레이트를 바꾸지 않는다. Profile 2 가 H.264
+GOP 60, Profile 1 이 MJPEG 이라 설정을 안 바꾸고도 두 코덱을 대조할 수 있었다.
+
+```powershell
+$env:CAMPW  = "<카메라 비밀번호>"     # 코드에도 JSON 에도 남기지 않는다
+$env:CAMHOST = "192.168.50.27"        # 기본값
+& $PY tools/camera-latency/measure_camera.py        # 약 6 분 (반복 포함)
+```
+
+⚠️ **한 번만 재면 틀린다.** UDP 도착 편차는 초반 세 번의 실행에서 500\~1900 ms 가
+나왔다가 이후 12 회에서 한 번도 재현되지 않았다. 그래서 이 스크립트는 기본 설정
+TCP/UDP 를 **5 회씩** 반복하고 최대/최소 비를 `repeatability[].reproducible` 로
+기록한다. 그 값이 거짓이면 숫자를 글에 쓰면 안 된다.
+
+⚠️ `max_delay` 를 임의로 걸지 말 것. 걸면 도착 편차가 그 값까지 커져서, 네트워크가
+아니라 자기 버퍼 설정을 재게 된다. 본 비교는 전부 ffmpeg 기본값이다.

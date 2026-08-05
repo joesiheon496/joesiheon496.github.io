@@ -52,11 +52,14 @@ def fig_budget():
     재지 않은 칸에 막대를 그리면 값을 아는 것처럼 보인다. 그래서 안 그린다 —
     이 그림의 논점이 바로 '아홉 중 셋만 쟀다' 이기 때문이다.
     """
-    enc, buf, jit = load("encoder"), load("buffer"), load("jitter")
+    enc, buf, cam = load("encoder"), load("buffer"), load("camera")
     fps = enc["fps"]
     frame_ms = 1000.0 / fps
     encode_ms = enc["isolated_costs_frames"]["lookahead"] * frame_ms
-    jitter_ms = jit["min_buffer_for_0p1pct_ms"]
+    # 지터버퍼는 실제 카메라(RTSP/TCP)의 도착 편차 최댓값으로 잡는다. 루프백
+    # 시뮬레이션이 아니라 실측이다.
+    tcp = next(r for r in cam["runs"] if r["label"] == "H.264 profile2 / TCP")
+    jitter_ms = tcp["jitter_offset_ms"]["max"]
     queue_max = buf["pts_lag_ms"]["end"]
 
     rows = [
@@ -64,7 +67,7 @@ def fig_budget():
         ("USB·MIPI 전송", None),
         ("인코딩", (encode_ms, encode_ms, f"{encode_ms:.0f} ms  (lookahead {enc['isolated_costs_frames']['lookahead']}프레임)")),
         ("네트워크", None),
-        ("지터버퍼", (jitter_ms, jitter_ms, f"{jitter_ms:.0f} ms")),
+        ("지터버퍼", (jitter_ms, jitter_ms, f"{jitter_ms:.0f} ms  (실제 카메라 도착 편차 최대)")),
         ("수신 큐", (1.0, queue_max, f"0 → {queue_max:,.0f} ms  (30초 만에)")),
         ("렌더·디스플레이", None),
     ]
@@ -217,9 +220,50 @@ def fig_buffer():
     return path
 
 
+def fig_camera():
+    """실제 카메라 RTSP — TCP 와 UDP 를 5회씩. 겹치는 것이 논점이다."""
+    cam = load("camera")
+    reps = cam["repeatability"]
+    fig, ax = plt.subplots(figsize=(9.5, 4.4))
+
+    palette = {"tcp": MEASURED, "udp": WARN}
+    for i, rep in enumerate(reps):
+        c = palette.get(rep["transport"], MEASURED)
+        xs = rep["jitter_p99_ms"]
+        ax.plot(xs, [i] * len(xs), "o", color=c, markersize=11, alpha=0.55,
+                zorder=3)
+        ax.plot([rep["min"], rep["max"]], [i, i], color=c, linewidth=2.5,
+                alpha=0.35, zorder=2)
+        ax.plot([rep["median"]], [i], "|", color=c, markersize=26,
+                markeredgewidth=3, zorder=4)
+        ax.text(rep["max"] + 1.2, i,
+                f"중앙 {rep['median']:.1f} ms   ({rep['min']:.1f}–{rep['max']:.1f}, "
+                f"{rep['n_runs']}회)",
+                va="center", fontsize=10, color=c, fontweight="bold")
+
+    ax.set_yticks(range(len(reps)))
+    ax.set_yticklabels([r["label"] for r in reps], fontsize=11)
+    ax.set_ylim(-0.6, len(reps) - 0.4)
+    ax.set_xlim(28, 58)
+    ax.set_xlabel("프레임 도착 편차 P99 (ms) — 낮을수록 좋다", fontsize=10.5)
+    ax.set_title("RTSP 전송은 TCP 가 UDP 보다 느리지 않았다\n"
+                 f"{cam['device']['model']} · 1920×1080 30 fps · 15초 × 5회",
+                 fontsize=12.5, fontweight="bold", pad=14)
+    ax.grid(axis="y", visible=False)
+    ax.text(0.985, 0.08,
+            "한 프레임 = 33.3 ms",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
+            color="#718096")
+    ax.axvline(1000 / 30, color="#a0aec0", linestyle=":", linewidth=1.5, zorder=1)
+    path = OUT / "rtsp-transport.png"
+    fig.savefig(path)
+    plt.close(fig)
+    return path
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    for fn in (fig_budget, fig_encoder, fig_buffer):
+    for fn in (fig_budget, fig_encoder, fig_buffer, fig_camera):
         print("wrote", fn())
 
 

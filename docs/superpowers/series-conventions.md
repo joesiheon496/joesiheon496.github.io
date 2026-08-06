@@ -132,7 +132,7 @@ grep -rl '<del>' public/ | wc -l           # 0 이어야 한다
 python tools/check-math.py public/posts/<slug>/index.html
 ```
 
-- 편별 canvas 개수로 회귀 확인 (1/2/2/2/2/4/4/4/4)
+- 편별 canvas 개수로 회귀 확인 (1/2/2/2/2/4/4/4/4/4)
 - 🔴 **육안 확인은 자동화 불가** — 브라우저 도구가 로컬 서버에 못 닿는다.
   `hugo server` 를 띄우고 항목 목록을 사용자에게 넘긴다. 확인 후 병합한다
 

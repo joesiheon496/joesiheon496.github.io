@@ -2,6 +2,7 @@
 title = "Upsample Guidance : 학습 없이 디퓨전 모델 해상도 올리기"
 date = 2026-08-05T13:00:00+09:00
 draft = false
+math = true
 tags = ["논문정리", "diffusion", "high-resolution", "training-free", "guidance"]
 categories = ["논문"]
 summary = "512²로 학습한 디퓨전 모델에 1024²를 시키면 인물이 둘 나온다. 이 논문은 재학습 없이 샘플링 식에 항 하나를 더해 그것을 고친다. 핵심은 '다운샘플하면 노이즈만 줄어든다'는 한 줄이다."

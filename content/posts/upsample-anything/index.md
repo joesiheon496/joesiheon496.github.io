@@ -19,37 +19,7 @@ summary = "DINOv2 피처는 원본의 1/16 크기 모자이크다. 이 논문은
 >
 > ⚠️ 본문 그림은 전부 원논문 figure 다(출처 명기, 학습용 인용). 표의 수치는 원논문 표에서 옮겼고, **「메모」의 반복당 시간 추정은 제가 직접 계산한 값**이다.
 
-{{< celos title="[2025] Upsample Anything : Training-free Feature Upsampling" >}}
-
-| | |
-|---|---|
-| **Title** | Upsample Anything: A Simple and Hard to Beat Baseline for Feature Upsampling |
-| **Year / Journal** | 2025 / 저널 없음 — arXiv 프리프린트 (arXiv:2511.16301, v2 2025-11-24) |
-| **Keywords** | feature upsampling, test-time optimization, joint bilateral upsampling, 2D gaussian splatting, training-free |
-| **1st Author** | Minseok Seo (KAIST) |
-
-**Contributions**
-1. JBU 의 고정·등방·전역 커널을 픽셀별 비등방 가우시안 (σx, σy, θ, σr) 로 일반화한 GSJBU — JBU 가 리프팅 공간의 GS 평가와 동일함을 보이고 그 사이를 잇는다
-2. 데이터셋 학습 없이 입력 이미지 자신의 축소→복원(L1)만으로 커널을 배우는 test-time optimization, 224² 기준 ≈0.419 s
-3. 배운 커널을 피처·깊이·확률맵·3D 볼륨에 그대로 재사용 — 값 합성이 없어 백본·모달리티에 무관
-
-**Methods**
-- I_HR 을 stride s 로 bilinear 다운샘플 → GSJBU 로 복원 → L1 재구성 손실을 50 iter, Adam lr 1e-3 로 최적화
-- 초기값 σx = σy = 16 (= scale), σr = 0.12, θ = 0 — 전부 soft prior, TTO 가 덮어쓴다
-- 렌더링은 F_HR(p) = Σ w(p←q)·F_LR(q) 순수 혼합 — 새 값을 만들지 않는다
-
-**Simulation Tool / Verifications**
-- COCO·VOC·ADE20k linear probe(100 epoch) 전부 1위, 확률맵 변형은 +2%p 더
-- NYUv2 depth RMSE 0.498 · δ₁ 0.829 최고, LoftUp 은 도메인 갭으로 bilinear 이하
-- 메모리가 해상도에 선형 — 1024² 에서 AnyUp 은 OOM, 본 방법은 1.8 s 로 동작
-- Cityscapes 는 모든 방법이 bilinear 와 동률(부록의 정직한 널 결과)
-
-**etc**
-- 같은 설정의 시간이 0.419 s(초록·표 5)와 0.0419 s(표 4·표 6)로 갈린다 — 본문 「메모」 참고
-- Figure 4 캡션의 수치·방향이 표 3 과 어긋난다
-- 노이즈 입력에서는 TTO 가 노이즈까지 복원해 과적합 — AnyUp 이 더 강건
-
-{{< /celos >}}
+{{< celos title="[2025] Upsample Anything : Training-free Feature Upsampling" src="celos-card.png" />}}
 
 ## 어디에 쓰는가
 

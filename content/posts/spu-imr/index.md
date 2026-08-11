@@ -19,18 +19,7 @@ summary = "업샘플링 방법은 거의 다 '점 사이를 보간'한다. SPU-I
 >
 > ⚠️ 그림은 모두 원논문 figure (출처 명기, 학습용 인용).
 
-{{< celos title="[2025] SPU-IMR : Self-supervised Arbitrary-scale" >}}
-| | |
-|---|---|
-| **Title** | SPU-IMR: Self-supervised Arbitrary-scale Point Cloud Upsampling via Iterative Mask-recovery Network |
-| **Year / Journal** | 2025 / AAAI 2025 (doi:10.1609/aaai.v39i6.32667) |
-| **Keywords** | point-cloud, upsampling, self-supervised, masked-autoencoder, arbitrary-scale |
-| **1st Author** | Ziming Nie |
-| **Contributions** | 1. 업샘플링을 보간이 아니라 명시적 완성(completion) 문제로 처음 정의<br>2. 자기지도 반복 마스크-복원 프레임워크 SPU-IMR<br>3. 테스트 시 MMR 모듈로 한 번의 학습만으로 임의 배율 달성 |
-| **Methods** | · FPS+KNN으로 256패치(각 16점) 분할, 60% 마스킹<br>· 보이는 패치 특징 + 중심점 위치 인코딩이 학습형 패치의 변형을 유도 (L=3 반복)<br>· 손실은 EMD 하나 — CD 대비 점 군집화를 막는다<br>· 테스트: 마스크 시퀀스 q=8개 → 합집합 → 이상치 제거 + FPS |
-| **Simulation Tool / Verifications** | · SAPCU/PUSS-AS 데이터셋(3,672 학습 / 1,047 테스트, 1,024점 입력)<br>· 4×: 자기지도 중 CD·HD·F-Score·P2F 전부 1위, P2F 6.85는 전체 1위<br>· HD가 전 배율에서 22~25로 안정 (SAPCU류는 40대)<br>· 4× RTX 3090, 6,000 epoch, batch 128 |
-| **etc** | · Table 3(m=0.7, 0.8)과 Table 4(L=4, 5) 수치가 완전히 동일 — 복붙 의심<br>· P2F는 마스크 비율에 단조 악화 (m=0.3이 3.01로 최선)<br>· NUC "higher" 서술은 표의 ↓ 방향과 어긋남<br>· 추론 시간 미보고, KITTI는 정성뿐 |
-{{< /celos >}}
+{{< celos title="[2025] SPU-IMR : Self-supervised Arbitrary-scale" src="celos-card.png" />}}
 
 ## 한 줄 요약
 

@@ -19,18 +19,7 @@ summary = "업샘플링 논문은 전부 객체 단위였다. PVNet은 LiDAR 스
 >
 > ⚠️ 그림은 모두 원논문 figure (출처 명기, 학습용 인용).
 
-{{< celos title="[2025] PVNet : Point-Voxel Interaction LiDAR" >}}
-| | |
-|---|---|
-| **Title** | PVNet: Point-Voxel Interaction LiDAR Scene Upsampling Via Diffusion Models |
-| **Year / Journal** | 2025 / arXiv preprint (arXiv:2508.17050, IEEE 투고 양식) |
-| **Keywords** | point-cloud, upsampling, lidar, diffusion, scene-level, arbitrary-scale |
-| **1st Author** | Xianjing Cheng |
-| **Contributions** | 1. 최초의 임의 배율 scene-level 점군 업샘플링<br>2. 조밀 GT 대신 인접 프레임 누적 합성 점군을 학습 감독으로 사용<br>3. 복셀 완성 모듈 + 포인트-복셀 상호작용 모듈 |
-| **Methods** | · CFG 기반 DDPM: 입력=합성 점군(18만 점), 조건=희소 스캔(1.8만 점)<br>· 노이즈를 좌표에 더함 — 점 생성이 아니라 위치 교란·복원<br>· 복셀 128×128×16, MPRB×3 완성 + U-Net, BN·bias 제거<br>· 각 점이 이웃 복셀 16개와 위치관계 상호작용, DPMSolver 50스텝 |
-| **Simulation Tool / Verifications** | · SemanticKITTI/KITTI-360, GT 없어 CD·RCD를 희소 입력 기준으로 평가<br>· 4× CD 0.097 (PU-GCN 0.112), 16× 0.082 — 전 지표 1위<br>· 시간: 4× 43초(최하위권), 16× 84초(2위) — 배율 무관 비용<br>· A40×2, 20 epoch, batch 2 · 코드 공개 |
-| **etc** | · 지표가 입력 충실도를 잰다(출력=입력이면 CD=0) — 순환 평가<br>· PUDM CD 614는 비교가 아니라 장면 스케일 붕괴<br>· 절제 표만 단위 [m] — 본 실험과 섞어 인용 금지<br>· Voxel Completion 단독은 CD 악화, 핵심 기여는 PVI |
-{{< /celos >}}
+{{< celos title="[2025] PVNet : Point-Voxel Interaction LiDAR" src="celos-card.png" />}}
 
 ## 한 줄 요약
 

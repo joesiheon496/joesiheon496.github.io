@@ -96,6 +96,11 @@ void MessageWindow::onMessageArrived(const Message& msg) {
 
 `default:`를 **쓰지 않는 것**이 요령이다. 나중에 표에 칸이 늘어 enum에 다섯 번째 값이 추가되면, `-Wswitch`(GCC/Clang 기본 경고, MSVC는 `/W4`의 C4062)가 "처리 안 된 case가 있다"고 모든 소비처를 짚어 준다. `default:`를 써 두면 새 값이 조용히 default로 흘러들어 가고, 컴파일러는 입을 다문다.
 
+> ⚠️ 위 스니펫은 `settings_`·`digest_`·`logger_` 멤버를 가진 클래스가 **이미 정의되어 있다고 전제한 발췌**다.
+> 이대로만 새 파일에 붙여넣으면 `MessageWindow::`의 `::` 앞에서 오류가 난다 — 클래스 밖 멤버 함수 정의는
+> `class MessageWindow { ... };`가 먼저 보여야 쓸 수 있는 문법이기 때문이다. 그대로 따라 쳐 볼 사람은
+> 맨 아래 **부록의 완결 파일**을 쓰면 된다.
+
 ## 테스트로 못 박기
 
 이제 표를 **그대로** 테스트로 옮긴다. 프레임워크 없이 `assert`만으로 완결된다.
@@ -166,3 +171,123 @@ Disposal decide(Urgency u, bool dndOn, int hourOfDay);
 | 숨은 입력(시계·설정·난수)은 인자로 | 재현 불가능한 상황이 함수 인자가 된다 |
 
 **다음 강 예고 — 2강 "새 기능은 마지막 분기 하나로":** 다운로드 관리자에 "완료 후 보관함/임시폴더" 기능을 추가하는데, 새 파이프라인을 만들지 않고 종료 단계의 분기 하나로 끝내는 설계. 상류의 트리거·선택·분할 로직을 공짜로 상속받는 방법과, "판정이 사후에만 가능하다"는 제약이 오히려 설계를 정해 주는 이야기.
+
+## 부록: 통째로 컴파일되는 연습 파일
+
+본문 스니펫들을 한 파일로 합친 것이다. MSVC에서 `cl /std:c++17 /W4 /EHsc /utf-8 lec1_full.cpp`로 **경고 0개 컴파일·실행을 확인**했다 (표준 C++17만 썼으므로 GCC/Clang은 `g++ -std=c++17 -Wall -Wextra lec1_full.cpp`).
+
+```cpp
+// lec1_full.cpp — 1강 연습용 완결 파일 (이 파일 하나로 컴파일된다)
+#include <cassert>
+#include <iostream>
+#include <iterator>   // std::size
+#include <queue>
+
+// ---------- 판정 (순수 영역: include 불필요, 부작용 없음) ----------
+enum class Urgency  { Normal, Critical };
+
+enum class Disposal {
+    PopupWithSound,   // 긴급 × 방해금지 OFF
+    PopupMuted,       // 긴급 × 방해금지 ON
+    BannerOnly,       // 일반 × 방해금지 OFF
+    DigestLater,      // 일반 × 방해금지 ON
+};
+
+[[nodiscard]] constexpr Disposal decideNotification(Urgency u, bool dndOn) {
+    if (u == Urgency::Critical) {
+        return dndOn ? Disposal::PopupMuted : Disposal::PopupWithSound;
+    }
+    return dndOn ? Disposal::DigestLater : Disposal::BannerOnly;
+}
+
+// ---------- 실행 (불순 영역: 화면·로그 등 부작용이 사는 곳) ----------
+struct Message {
+    Urgency     urgency;
+    const char* text;
+};
+
+struct Settings {
+    bool dndOn = false;
+};
+
+class Logger {
+public:
+    void write(const Message& m) { std::cout << "[log] " << m.text << '\n'; }
+};
+
+class MessageWindow {
+public:
+    explicit MessageWindow(Settings s) : settings_(s) {}
+    void onMessageArrived(const Message& msg);   // 정의는 아래, 클래스 밖에서
+
+private:
+    void playSound()                  { std::cout << "[sound!]\n"; }
+    void showPopup(const Message& m)  { std::cout << "[popup ] " << m.text << '\n'; }
+    void showBanner(const Message& m) { std::cout << "[banner] " << m.text << '\n'; }
+
+    Settings            settings_;
+    std::queue<Message> digest_;
+    Logger              logger_;
+};   // ← 클래스 정의 끝의 세미콜론. 빠지면 오류가 "다음 선언"에서 난다
+
+// MessageWindow:: 를 쓸 수 있는 것은 위에 클래스 정의가 있기 때문이다
+void MessageWindow::onMessageArrived(const Message& msg) {
+    switch (decideNotification(msg.urgency, settings_.dndOn)) {
+        case Disposal::PopupWithSound: playSound(); showPopup(msg); break;
+        case Disposal::PopupMuted:     showPopup(msg);              break;
+        case Disposal::BannerOnly:     showBanner(msg);             break;
+        case Disposal::DigestLater:    digest_.push(msg);           break;
+    }
+    logger_.write(msg);
+}
+
+// ---------- 테스트: 스펙 표를 그대로 옮긴다 ----------
+struct Case { Urgency u; bool dnd; Disposal want; };
+
+constexpr Case kSpecTable[] = {
+    { Urgency::Critical, false, Disposal::PopupWithSound },
+    { Urgency::Critical, true,  Disposal::PopupMuted     },
+    { Urgency::Normal,   false, Disposal::BannerOnly     },
+    { Urgency::Normal,   true,  Disposal::DigestLater    },
+};
+
+static_assert(std::size(kSpecTable) == 4, "spec table must cover all 4 cells");
+
+int main() {
+    for (const Case& c : kSpecTable) {
+        assert(decideNotification(c.u, c.dnd) == c.want);
+    }
+    std::cout << "policy tests: 4/4 passed\n\n";
+
+    MessageWindow dndOff(Settings{false});
+    dndOff.onMessageArrived({Urgency::Critical, "server down"});
+    dndOff.onMessageArrived({Urgency::Normal,   "new comment"});
+
+    MessageWindow dndOn(Settings{true});
+    dndOn.onMessageArrived({Urgency::Critical, "server down"});
+    dndOn.onMessageArrived({Urgency::Normal,   "new comment"});
+    return 0;
+}
+```
+
+실행 출력:
+
+```text
+policy tests: 4/4 passed
+
+[sound!]
+[popup ] server down
+[log] server down
+[banner] new comment
+[log] new comment
+[popup ] server down
+[log] server down
+[log] new comment
+```
+
+마지막 두 줄을 보라 — 방해금지 ON에서 긴급은 **소리 없이** 팝업이 뜨고(`[sound!]`가 없다), 일반은 화면에 아무것도 안 띄우고 요약함에만 들어간다(로그만 남는다). 표의 네 칸이 그대로 출력에 있다.
+
+### 따라 치다 만나는 오류 두 가지
+
+- **`::` 앞에서 "클래스가 아니다" / "expected ;"** — `void MessageWindow::onMessageArrived`는 클래스 밖 멤버 정의 문법이라, 위에 `class MessageWindow { ... };` 정의가 먼저 있어야 한다. 본문 스니펫만 붙여넣으면 반드시 만나는 오류.
+- **엉뚱한 줄의 "expected ;"** — `enum class`·`class`·`struct` 정의는 닫는 `}` 뒤에 `;`가 필수인데, 빠뜨리면 컴파일러는 그 자리가 아니라 **다음 선언에서** 오류를 낸다. 에러 줄번호 위쪽의 가장 가까운 `}`들을 먼저 의심할 것.

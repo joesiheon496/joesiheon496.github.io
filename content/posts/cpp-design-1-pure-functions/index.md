@@ -174,7 +174,7 @@ Disposal decide(Urgency u, bool dndOn, int hourOfDay);
 
 ## 부록: 통째로 컴파일되는 연습 파일
 
-본문 스니펫들을 한 파일로 합친 것이다. MSVC에서 `cl /std:c++17 /W4 /EHsc /utf-8 lec1_full.cpp`로 **경고 0개 컴파일·실행을 확인**했다 (표준 C++17만 썼으므로 GCC/Clang은 `g++ -std=c++17 -Wall -Wextra lec1_full.cpp`).
+본문 스니펫들을 한 파일로 합친 것이다. MSVC에서 `cl /std:c++17 /W4 /EHsc /utf-8 lec1_full.cpp`로 **경고 0개 컴파일·실행을 확인**했다 (표준 C++17만 썼으므로 GCC/Clang은 `g++ -std=c++17 -Wall -Wextra lec1_full.cpp`). 이 파일을 실무처럼 `.h`/`.cpp`로 나누는 연습은 [1강 보강편]({{< ref "/posts/cpp-design-1a-headers" >}})에서 따로 다룬다.
 
 ```cpp
 // lec1_full.cpp — 1강 연습용 완결 파일 (이 파일 하나로 컴파일된다)

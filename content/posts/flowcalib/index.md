@@ -20,6 +20,8 @@ summary = "LiDAR가 차량 프레임에 대해 몇 도 틀어져 있으면, 정�
 >
 > ⚠️ 커버는 원논문 그림 (출처 명기, 학습용 인용).
 
+{{< celos title="[2026] FlowCalib: LiDAR-to-Vehicle Miscalibration Detection" src="celos-card.png" />}}
+
 ## 한 줄 요약
 
 센서 간(LiDAR-카메라) 캘리브레이션이 아니라 **LiDAR-차량(vehicle frame) 오정렬**을 다룬다. 핵심 관찰은 단순하다:

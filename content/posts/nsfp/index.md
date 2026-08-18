@@ -12,6 +12,8 @@ summary = "연속된 두 LiDAR 점군(t=k, t=k+1)만 주고, 프레임 쌍마다
 > 💻 **코드**: [github.com/Lilac-Lee/Neural_Scene_Flow_Prior](https://github.com/Lilac-Lee/Neural_Scene_Flow_Prior) · [프로젝트 페이지](https://lilac-lee.github.io/Neural_Scene_Flow_Prior/)
 > 🔗 관련 정리: [Grad-PU]({{< ref "/posts/grad-pu" >}}) (반복 최적화로 점을 옮기는 같은 철학) · [Upsample Anything]({{< ref "/posts/upsample-anything" >}}) (2D 쪽의 test-time optimization) · [FlowCalib]({{< ref "/posts/flowcalib" >}}) (NSFP를 부품으로 쓰는 후속)
 
+{{< celos title="[2021] Neural Scene Flow Prior" src="celos-card.png" />}}
+
 ## 한 줄 요약
 
 Scene flow — 연속 두 점군 \(P_k, P_{k+1}\) 사이의 점별 3D 모션 — 를 구하는 데 **학습된 네트워크를 쓰지 않는다.** 대신 프레임 쌍이 주어질 때마다 **무작위 초기화된 MLP를 그 쌍 위에서 직접 최적화**한다. MLP는 흐름을 예측하도록 "배운" 적이 없다. 좌표를 받아 흐름을 내놓는 매끄러운 함수라는 **구조적 성질 자체가 정규화**로 작동하고, 그것이 노이즈에 강하고 물리적으로 그럴듯한 흐름을 만든다.

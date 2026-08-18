@@ -11,6 +11,8 @@ summary = "단일 프레임만 보던 점군 업샘플링에 시간 축을 연�
 > 💻 **코드**: 공개 확인 못 함
 > 🔗 관련 정리: [Grad-PU]({{< ref "/posts/grad-pu" >}}) · [ReLPU]({{< ref "/posts/relpu" >}}) · [SPU-IMR]({{< ref "/posts/spu-imr" >}}) (**이름 유사 주의** — 저쪽은 자기지도 마스크 복원, 별개 논문) · [NSFP]({{< ref "/posts/nsfp" >}}) · [FlowCalib]({{< ref "/posts/flowcalib" >}})
 
+{{< celos title="[2021] Sequential Point Cloud Upsampling" src="celos-card.png" />}}
+
 ## 한 줄 요약
 
 지금까지 정리한 업샘플링 논문들(PU-Net → PU-GAN → Grad-PU → PUFM 계열)은 전부 **한 장의 정지 점군**을 입력으로 받는다. 이 논문(약칭 SPU)은 질문을 바꾼다 — 점군이 **시퀀스**로 들어온다면, t=k 프레임을 조밀하게 만들 때 **t=k−1과 t=k+1이 담고 있는 상보적 기하 정보**를 왜 버리는가?

@@ -16,7 +16,7 @@ summary = "LiDAR가 차량 프레임에 대해 몇 도 틀어져 있으면, 정�
 
 > 📄 **논문**: *FlowCalib: LiDAR-to-Vehicle Miscalibration Detection using Scene Flows*, Ilir Tahiraj, Peter Wittal, Markus Lienkamp — TUM — [arXiv:2601.23107](https://arxiv.org/abs/2601.23107) (2026.01.30)
 > 💻 **코드**: 논문에 공개 언급 확인 못 함
-> 🔗 관련 정리: [NSFP]({{< ref "/posts/nsfp" >}}) (흐름 추정기로 그대로 사용) · [Sequential PU]({{< ref "/posts/sequential-pu" >}}) (같은 t=k, t+1 정보의 다른 용도)
+> 🔗 관련 정리: [NSFP]({{< ref "/posts/nsfp" >}}) (흐름 추정기로 그대로 사용)
 >
 > ⚠️ 커버는 원논문 그림 (출처 명기, 학습용 인용).
 

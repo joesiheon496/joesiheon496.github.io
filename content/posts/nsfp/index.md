@@ -1,6 +1,6 @@
 +++
 title = "NSFP : 학습 데이터 없이, 두 프레임 사이에서 신경망을 최적화한다"
-date = 2026-08-18T20:00:00+09:00
+date = 2026-08-18T09:00:00+09:00
 draft = false
 tags = ["논문정리", "scene-flow", "point-cloud", "test-time-optimization", "LiDAR", "NeurIPS"]
 categories = ["논문"]

@@ -1,6 +1,6 @@
 +++
 title = "Sequential PU : 이전·현재·다음 프레임이 함께 점군을 조밀하게 만든다"
-date = 2026-08-18T21:00:00+09:00
+date = 2026-08-18T09:40:00+09:00
 draft = false
 tags = ["논문정리", "point-cloud", "upsampling", "temporal", "cross-attention", "TCSVT"]
 categories = ["논문"]

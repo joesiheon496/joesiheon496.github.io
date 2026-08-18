@@ -2,6 +2,7 @@
 title = "FlowCalib : 정지된 세계의 흐름이 캘리브레이션 오차를 폭로한다"
 date = 2026-08-18T09:20:00+09:00
 draft = false
+math = true
 tags = ["논문정리", "calibration", "LiDAR", "scene-flow", "miscalibration-detection", "nuScenes"]
 categories = ["논문"]
 summary = "LiDAR가 차량 프레임에 대해 몇 도 틀어져 있으면, 정지한 물체들의 scene flow에 거리에 비례하는 체계적 편향이 생긴다. FlowCalib은 NSFP로 뽑은 흐름장에서 이 편향을 읽어 — 추가 센서 없이 — 오정렬 여부와 축까지 분류한다. LiDAR-to-Vehicle 오정렬 탐지의 첫 프레임워크."

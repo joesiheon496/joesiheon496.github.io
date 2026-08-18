@@ -2,6 +2,7 @@
 title = "NSFP : 학습 데이터 없이, 두 프레임 사이에서 신경망을 최적화한다"
 date = 2026-08-18T09:00:00+09:00
 draft = false
+math = true
 tags = ["논문정리", "scene-flow", "point-cloud", "test-time-optimization", "LiDAR", "NeurIPS"]
 categories = ["논문"]
 summary = "연속된 두 LiDAR 점군(t=k, t=k+1)만 주고, 프레임 쌍마다 MLP를 즉석에서 최적화해 3D 흐름을 얻는다. 학습 데이터도 사전 학습도 없다 — 신경망의 구조 자체가 정규화(prior) 역할을 한다. 이후 ZeroFlow·Fast NSF·FlowCalib이 모두 이 위에 서 있다."

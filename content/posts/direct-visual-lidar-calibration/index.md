@@ -2,6 +2,7 @@
 title = "Koide 캘리브레이션 툴박스 : LiDAR 인텐시티는 이미 흑백사진이다"
 date = 2026-08-24T11:00:00+09:00
 draft = false
+math = true
 tags = ["논문정리", "lidar", "camera", "calibration", "nid", "ros2"]
 categories = ["논문"]
 summary = "체커보드 없이, 데이터 한 쌍으로, 초기값도 없이 LiDAR-카메라 외부 캘리브레이션을 끝내는 공개 툴박스. 핵심 통찰은 LiDAR 인텐시티가 표면 반사율을 담은 흑백사진이라는 것 — 그러면 캘리브레이션은 '같은 장면을 찍은 두 사진의 정합'이 되고, 유사도로 정규화 상호정보(NID)를 외부 파라미터에 대해 직접 최소화할 수 있다. SuperGlue 초기 추정부터 Nelder-Mead NID 정합까지, 방법과 도구 사용법·수치의 명암을 함께 정리했다."
@@ -66,7 +67,9 @@ LiDAR 포인트에는 좌표만 있는 게 아니라 **인텐시티** — 레이
 
 정밀 정합 단계에서는 외부 파라미터 후보 `T`로 LiDAR 포인트를 이미지에 투영하고, 각 포인트의 **LiDAR 인텐시티 ↔ 떨어진 픽셀의 밝기** 쌍을 모아 결합 히스토그램을 만든다. 두 센서의 밝기 체계는 서로 다르므로 값을 직접 빼는 건 무의미하지만, **정렬이 맞을수록 "인텐시티를 알면 픽셀 밝기를 잘 예측할 수 있는" 상태**가 된다 — 이 예측 가능성을 재는 것이 상호정보(MI)이고, 논문은 그 정규화판인 NID를 쓴다:
 
-$$\text{NID}(\mathcal{L}, \mathcal{I}) = \frac{H(\mathcal{L},\mathcal{I}) - \text{MI}(\mathcal{L};\mathcal{I})}{H(\mathcal{L},\mathcal{I})}, \qquad \text{MI} = H(\mathcal{L}) + H(\mathcal{I}) - H(\mathcal{L},\mathcal{I})$$
+$$
+\text{NID}(\mathcal{L}, \mathcal{I}) = \frac{H(\mathcal{L},\mathcal{I}) - \text{MI}(\mathcal{L};\mathcal{I})}{H(\mathcal{L},\mathcal{I})}, \qquad \text{MI} = H(\mathcal{L}) + H(\mathcal{I}) - H(\mathcal{L},\mathcal{I})
+$$
 
 MI가 아니라 NID인 이유: MI는 겹치는 영역의 크기에 따라 절대값이 변해 비교 기준이 흔들리는 반면, NID는 [0, 1]로 정규화되고 거리 공간 공리를 만족해 더 강건하다. 이 NID를 **Nelder-Mead**(미분 불요 심플렉스법)로 최소화한다 — 히스토그램 기반 목적함수라 매끄러운 기울기가 없기 때문이다. 카메라에서 보이지 않아야 할 점이 히스토그램을 오염시키지 않도록 **hidden point removal**로 가려진 점을 제거하고, 추정이 갱신되면 제거와 정합을 수렴까지 반복한다.
 
